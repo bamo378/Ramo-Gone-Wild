@@ -23,9 +23,9 @@ const ui = {
     const b = $('hBonus');
     if (bonus) { b.textContent = bonus; b.classList.remove('hidden'); } else b.classList.add('hidden');
   },
-  message(text) {
+  message(text, dur = 2.8) {
     const t = $('toast'); t.textContent = text; t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), dur * 1000);
   },
   gameOver({ score, distance, mode: m }) {
     const isRecord = store.submit(m, score, distance);
@@ -44,6 +44,7 @@ const ui = {
 };
 let lastScore = 0;
 let pendingPlay = false;
+let howtoSeen = false; // le mode d'emploi s'affiche avant la première partie de chaque visite
 let game;
 
 function applyMode() {
@@ -60,6 +61,7 @@ function updateSoundBtn() { $('btnSound').textContent = store.sound ? '🔊 SON'
 function play() {
   initAudio();
   if (!store.pseudo) { pendingPlay = true; show('pseudo'); setTimeout(() => $('pseudoInput').focus(), 100); return; }
+  if (!howtoSeen) { pendingPlay = true; show('howto'); return; }
   hide('menu'); hide('over'); hide('pause');
   $('hud').classList.remove('hidden');
   game.start(mode);
@@ -178,6 +180,8 @@ async function boot() {
   $('pseudoInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnPseudoOk').click(); });
   $('secretCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnSecretOk').click(); });
   $('btnSkipLove').onclick = () => game.endLove();
+  $('btnHelp').onclick = () => { sfx.click(); show('howto'); };
+  $('btnHowtoOk').onclick = () => { howtoSeen = true; store.tutorial = true; hide('howto'); if (pendingPlay) { pendingPlay = false; play(); } };
   document.addEventListener('visibilitychange', () => { if (document.hidden && game.state === 'play') togglePause(); });
 
   hide('loading'); show('menu');

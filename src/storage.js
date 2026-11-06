@@ -22,6 +22,8 @@ function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch
 export const store = {
   get pseudo() { return data.pseudo; },
   set pseudo(v) { data.pseudo = String(v).slice(0, 16); save(); },
+  get tutorial() { return !!data.tutorial; },
+  set tutorial(v) { data.tutorial = !!v; save(); },
   get sound() { return data.sound; },
   set sound(v) { data.sound = !!v; save(); },
   best(mode) { return data.best[mode] || 0; },

@@ -41,6 +41,7 @@
       <div class="row">
         <button class="btn" id="btnRecords">🏆 RECORDS</button>
         <button class="btn" id="btnSound">🔊 SON</button>
+        <button class="btn help" id="btnHelp" aria-label="Mode d'emploi">?</button>
       </div>
       <button class="btn ghost hidden" id="btnClassic">↩ Retour au mode classique</button>
       <p class="hello" id="hello"></p>
@@ -110,6 +111,31 @@
       <p>Pour signer tes records de tournée.</p>
       <input id="pseudoInput" maxlength="16" placeholder="ex. Castor Fou" autocomplete="off" />
       <button class="btn big" id="btnPseudoOk">C'EST PARTI</button>
+    </div>
+  </div>
+
+  <!-- Mode d'emploi -->
+  <div id="howto" class="screen modal-screen">
+    <div class="card howto-card">
+      <h2>COMMENT JOUER</h2>
+      <p class="howto-sub">Ramo court tout seul. Toi, tu glisses le doigt sur l'écran :</p>
+      <div class="swipes">
+        <div><span class="sw">👈 👉</span><b>Changer de voie</b></div>
+        <div><span class="sw">☝️</span><b>Sauter</b></div>
+        <div><span class="sw">👇</span><b>Glisser dessous</b></div>
+      </div>
+      <div class="legend">
+        <div><span>🛢️ 📦</span>Tonneau, caisse → <b>saute</b></div>
+        <div><span>🚧</span>Banderole haute → <b>glisse</b></div>
+        <div><span>🐄 🫕</span>Vache, char → <b>change de voie</b></div>
+        <div><span>🍺</span>Bière +10 · grande +50</div>
+        <div><span>⭐</span>Bière dorée : invincible</div>
+        <div><span>🍻</span>Super chope : points ×2</div>
+        <div class="adult-only"><span>💋 🔥 🪩</span>Charme, coup de chaud, nuit de folie</div>
+        <div class="adult-only"><span>❤️</span>Cœur LOVE : la Love Room !</div>
+      </div>
+      <p class="howto-sub">3 vies · plus tu cours, plus ça va vite. Sur ordinateur : les flèches du clavier.</p>
+      <button class="btn big" id="btnHowtoOk">C'EST COMPRIS !</button>
     </div>
   </div>
 

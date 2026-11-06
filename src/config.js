@@ -5,9 +5,9 @@
 
 export const GAME = {
   lanes: 3,
-  startSpeed: 20,      // unités de profondeur / seconde
+  startSpeed: 13,      // unités de profondeur / seconde
   maxSpeed: 46,
-  speedRamp: 0.32,     // gain de vitesse par seconde
+  speedRamp: 0.42,     // gain de vitesse par seconde
   lives: 3,
   hitInvuln: 1.6,      // secondes d'invulnérabilité après un choc
   spawnFar: 95,        // profondeur d'apparition

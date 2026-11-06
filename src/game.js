@@ -3,6 +3,8 @@
 // =====================================================================
 import { GAME, PICKUPS, OBSTACLES, LEVELS, MSG_CLASSIC, MSG_ADULT, MSG_HIT, MSG_BLONDE, MSG_LOVE_OUT } from './config.js';
 import * as D from './draw.js';
+import * as S from './scene.js';
+import { drawBlonde } from './blonde.js';
 import { sfx } from './audio.js';
 
 const { rand, pick } = D;
@@ -47,12 +49,12 @@ export class Game {
     this.score = 0; this.beerPts = 0; this.lives = GAME.lives; this.beers = 0;
     this.ents = []; this.decor = []; this.parts = [];
     this.rowCd = 30; this.decorCd = 0; this.lastSide = 1;
-    this.castleCd = 120;
+    this.castleCd = 120; this.hallCd = 60;
     this.p = { lane: 0, x: 0, jumpH: 0, vy: 0, slide: 0, inv: 0, hitAnim: 0, fx: {}, fxT: 0, wag: 0 };
     this.buffs = { invincible: 0, double: 0, heat: 0, crazy: 0 };
     this.blonde = null; // { t, kind }
     this.closeup = null;
-    this.msgCd = 6; this.shake = 0;
+    this.msgCd = 14; this.shake = 0; this.hints = [];
     this.loveDone = 0; this.sinceLove = 8; this.adultCd = 3; this.adultCycle = 0;
     // décor initial
     for (let z = -4; z < GAME.spawnFar; z += 0) z = this.spawnDecor(z);
@@ -61,6 +63,12 @@ export class Game {
   start(mode) {
     this.reset(mode);
     this.state = 'play';
+    this.hints = [
+      { t: 2.6, text: '👈 👉 Glisse à gauche / à droite pour changer de voie' },
+      { t: 6.2, text: '☝️ Glisse vers le haut pour sauter les tonneaux' },
+      { t: 9.8, text: '👇 Glisse vers le bas sous les banderoles' },
+      { t: 13.4, text: '🍺 Attrape un max de bières !' },
+    ];
     this.ui.message(pick(['Le castor est lâché dans Bulle !', 'Mission apéro : GO !', 'Bulle n\'était pas prête pour ça !']));
     this.emitHud();
   }
@@ -83,22 +91,29 @@ export class Game {
   spawnDecor(z) {
     // façades de chaque côté, en continu
     const lvl = this.level;
-    const cols = ['#f3dfb8', '#e9c9a0', '#d9e2c4', '#f0c8b8', '#e6d6c2', '#f5e6c8', '#cfdbe0'];
+    const cols = ['#ecd9b4', '#e3c193', '#d8d9bd', '#ecc6ad', '#e8dcc6', '#f1e4c6', '#cfd6d2', '#e7c9a4', '#d9c3a5'];
     const colsN = ['#2d1440', '#3a1a52', '#24113a', '#311648'];
     const shutters = ['#2f6b3a', '#8b2f23', '#355d8a', '#6b4a2b'];
     const signs = ['#7a1f12', '#2f5d3a', '#24476b', '#6b3a1f'];
+    const awnings = ['#b8322a', '#2f6b3a', '#24476b', '#c47a1c', '#7a1f4a'];
     const len = rand(7, 11);
     for (const side of [-1, 1]) {
       if (this.castleCd <= 0 && side === this.lastSide) {
         this.decor.push({ kind: 'castle', side, z, len: 14 });
         continue;
       }
+      if (this.hallCd <= 0 && side === -this.lastSide) {
+        this.decor.push({ kind: 'townhall', side, z, len: len + 2, seed: 1 });
+        this.hallCd = rand(450, 650);
+        continue;
+      }
       this.decor.push({
         kind: 'building', side, z: z + (side > 0 ? 0 : rand(-2, 2)), len, h: rand(3.6, 5.4), floors: Math.random() < 0.5 ? 2 : 3,
-        col: pick(cols), colN: pick(colsN), roof: pick(['#8b3a2a', '#6e2f23', '#7a4a3a']), shutter: pick(shutters), signCol: pick(signs),
+        col: pick(cols), colN: pick(colsN), roof: pick(['#8b3a2a', '#6e2f23', '#7a4a3a']), shutter: pick(shutters), signCol: pick(signs), awning: pick(awnings),
         sign: pick(this.adult ? lvl.adultShops : lvl.shops), seed: Math.floor(rand(0, 9)),
       });
-      if (Math.random() < 0.45) this.decor.push({ kind: Math.random() < 0.5 ? 'terrace' : 'lamp', side, z: z + rand(1, len - 1), flag: Math.random() < 0.5 ? 'ch' : 'fr' });
+      const r = Math.random();
+      if (r < 0.5) this.decor.push({ kind: r < 0.22 ? 'terrace' : r < 0.46 ? 'lamp' : 'kiosk', side, z: z + rand(1, len - 1), flag: Math.random() < 0.5 ? 'ch' : 'fr' });
     }
     if (this.castleCd <= 0) { this.castleCd = rand(260, 380); this.lastSide *= -1; return z + 15; }
     return z + len + 0.4;
@@ -108,8 +123,9 @@ export class Game {
     const d = Math.min(1, this.elapsed / 110);
     const lanes = [-1, 0, 1];
     const obs = {};
-    let n = Math.random() < 0.25 + 0.45 * d ? 2 : 1;
-    let allowTriple = Math.random() < 0.18 * d;
+    const easy = this.elapsed < 15;
+    let n = !easy && Math.random() < 0.25 + 0.45 * d ? 2 : 1;
+    let allowTriple = !easy && Math.random() < 0.18 * d;
     if (allowTriple) n = 3;
     const shuffled = lanes.sort(() => Math.random() - 0.5);
     for (let i = 0; i < n; i++) {
@@ -187,9 +203,9 @@ export class Game {
     this.decor = this.decor.filter((e) => e.z + (e.len || 1) > -4);
     // génération
     this.rowCd -= dz;
-    if (this.rowCd <= 0) { this.spawnRow(GAME.spawnFar); this.rowCd = this.speed * rand(0.78, 1.15); }
-    this.castleCd -= dz;
-    let far = Math.max(...this.decor.filter((d) => d.kind === 'building' || d.kind === 'castle').map((d) => d.z + d.len), 0);
+    if (this.rowCd <= 0) { this.spawnRow(GAME.spawnFar); this.rowCd = this.speed * rand(0.78, 1.15) * (this.elapsed < 15 ? 1.4 : 1); }
+    this.castleCd -= dz; this.hallCd -= dz;
+    let far = Math.max(...this.decor.filter((d) => d.kind === 'building' || d.kind === 'castle' || d.kind === 'townhall').map((d) => d.z + d.len), 0);
     while (far < GAME.spawnFar + 20) far = this.spawnDecor(far);
     // collisions
     const pz = 0;
@@ -213,6 +229,8 @@ export class Game {
     // score
     const mult = b.double > 0 ? 2 : 1;
     this.score = this.beerPts + Math.floor(this.travel * GAME.metersPerUnit);
+    // consignes de départ
+    if (this.hints.length && this.elapsed >= this.hints[0].t) this.ui.message(this.hints.shift().text, 3.4);
     // messages aléatoires
     this.msgCd -= dt;
     if (this.msgCd <= 0) { this.ui.message(pick(this.adult && Math.random() < 0.7 ? MSG_ADULT : MSG_CLASSIC)); this.msgCd = rand(9, 15); }
@@ -332,19 +350,21 @@ export class Game {
     c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     c.save();
     if (this.shake > 0) c.translate(rand(-6, 6) * this.shake * 3, rand(-6, 6) * this.shake * 3);
-    D.drawSky(c, W, H, P.hor, adult, t);
-    D.drawMountains(c, W, H, P.hor, adult);
-    D.drawRoad(c, P, W, H, adult, this.travel);
+    S.drawSky(c, W, H, P.hor, adult, t);
+    S.drawMountains(c, W, H, P.hor, adult);
+    S.drawRoad(c, P, W, H, adult, this.travel);
     if (adult) this.discoBeams(c);
     // décor du plus loin au plus près
     const dec = [...this.decor].sort((a, b) => b.z - a.z);
     for (const d of dec) {
-      if (d.kind === 'building') D.drawBuilding(c, P, d, adult, t);
-      else if (d.kind === 'castle') D.drawCastleSide(c, P, d, adult);
+      if (d.kind === 'building') S.drawBuilding(c, P, d, adult, t);
+      else if (d.kind === 'townhall') S.drawTownHall(c, P, d, adult);
+      else if (d.kind === 'kiosk') S.drawKiosk(c, P, d, adult);
+      else if (d.kind === 'castle') S.drawCastleSide(c, P, d, adult);
       else if (d.kind === 'terrace') D.drawTerrace(c, P, d, adult);
       else if (d.kind === 'lamp') D.drawLamp(c, P, d, adult);
       else if (d.kind === 'blonde' && d.z > -2 && d.z < 70) {
-        const s = P.s(d.z); D.drawBlonde(c, P.x(d.side * 1.42, d.z), P.y(d.z), P.unit * 1.5 * s, t, { wink: d.z < 12 && Math.sin(t * 4) > 0, kiss: d.z < 10 ? 1 : 0 });
+        const s = P.s(d.z); drawBlonde(c, P.x(d.side * 1.42, d.z), P.y(d.z), P.unit * 1.5 * s, t, { wink: d.z < 12 && Math.sin(t * 4) > 0, kiss: d.z < 10 ? 1 : 0 });
       }
     }
     // entités + Ramo triés par profondeur
@@ -434,7 +454,7 @@ export class Game {
     const side = r.x < W / 2 ? 1 : -1;
     const x = r.x + side * (W * 0.34) * (inT - outT) + side * W * 0.5 * (1 - inT) ;
     const size = this.ramoH * 1.05;
-    D.drawBlonde(c, x, H * 0.86, size, this.t, { wink: b.t > 0.5 && b.t < 1.3, kiss: b.t > 1.2 && b.t < 2.2 ? 1 : 0 });
+    drawBlonde(c, x, H * 0.86, size, this.t, { wink: b.t > 0.5 && b.t < 1.3, kiss: b.t > 1.2 && b.t < 2.2 ? 1 : 0 });
     if (b.t > 1.3 && b.t < 2.4 && Math.random() < 0.5) {
       this.parts.push({ kind: 'heart', x: x - side * 10, y: H * 0.86 - size * 0.85, vx: (r.x - x) * 1.4, vy: -rand(20, 80), life: 0.8, max: 0.8, size: rand(10, 18), color: pick(['#ff2fa8', '#ff1744']), g: 40, rot: 0 });
     }
@@ -457,7 +477,7 @@ export class Game {
     if (t < 1.4) {
       const hw = cw * 0.42, hh = hw * (620 / 528);
       c.drawImage(this.img.full, cx - hw - cw * 0.5 * (1 - enter), cy + ch / 2 - hh, hw, hh);
-      D.drawBlonde(c, cx + cw * 0.22 + cw * 0.5 * (1 - enter), cy + ch / 2, ch * 0.62, this.t, { wink: true, kiss: t > 0.7 ? 1 : 0 });
+      drawBlonde(c, cx + cw * 0.22 + cw * 0.5 * (1 - enter), cy + ch / 2, ch * 0.62, this.t, { wink: true, kiss: t > 0.7 ? 1 : 0 });
     }
     // rideau
     const close = t < 1.4 ? Math.max(0, (t - 0.9) / 0.5) : t > 5 ? Math.max(0, 1 - (t - 5) / 0.5) : 1;

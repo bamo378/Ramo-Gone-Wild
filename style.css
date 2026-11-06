@@ -113,3 +113,18 @@ body.adult .toast { background: rgba(30,0,40,.9); color: #ff9be8; border: 2px so
 body.adult .pill.score b { color: #ff4fd8; }
 body.adult .level-name { background: rgba(255,47,196,.3); }
 .secret-card h2 { color: #7a1f12; }
+
+/* Mode d'emploi */
+.btn.help { flex: 0 0 56px; font-size: 22px; padding: 13px 0; }
+.howto-card { gap: 8px; max-height: 92vh; overflow-y: auto; }
+.howto-card h2 { font-size: 30px; }
+.howto-sub { font-size: 14px; }
+.swipes { display: flex; gap: 6px; }
+.swipes div { flex: 1; background: #fff; border-radius: 14px; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 13px; }
+.swipes .sw { font-size: 26px; }
+.legend { display: grid; grid-template-columns: 1fr; gap: 4px; text-align: left; font-weight: 800; font-size: 14px; }
+.legend div { background: rgba(255,255,255,.7); border-radius: 10px; padding: 5px 10px; display: flex; gap: 8px; align-items: center; }
+.legend span { width: 58px; text-align: center; flex: none; }
+.adult-only { display: none !important; }
+body.adult .adult-only { display: flex !important; }
+body.adult .swipes div, body.adult .legend div { background: #2d0f47; }
