@@ -5,6 +5,7 @@ import { GAME, PICKUPS, OBSTACLES, LEVELS, MSG_CLASSIC, MSG_ADULT, MSG_HIT, MSG_
 import * as D from './draw.js';
 import * as S from './scene.js';
 import { drawBlonde } from './blonde.js';
+import * as G from './grandrue.js';
 import { sfx } from './audio.js';
 
 const { rand, pick } = D;
@@ -25,7 +26,7 @@ export class Game {
   }
 
   resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.75);
     const W = window.innerWidth, H = window.innerHeight;
     this.W = W; this.H = H; this.dpr = dpr;
     this.cv.width = Math.round(W * dpr); this.cv.height = Math.round(H * dpr);
@@ -89,34 +90,41 @@ export class Game {
 
   // ------------------------------------------------ génération
   spawnDecor(z) {
-    // façades de chaque côté, en continu
+    // Grand-Rue de Bulle : façades continues des deux côtés + mobilier urbain
     const lvl = this.level;
-    const cols = ['#ecd9b4', '#e3c193', '#d8d9bd', '#ecc6ad', '#e8dcc6', '#f1e4c6', '#cfd6d2', '#e7c9a4', '#d9c3a5'];
+    const cols = ['#efe6cf', '#f1dd9c', '#ec9e8f', '#f2b9aa', '#f3f0e8', '#ddd3c2', '#e8c98a', '#f0e2c0', '#e9a896', '#e4dccb'];
     const colsN = ['#2d1440', '#3a1a52', '#24113a', '#311648'];
-    const shutters = ['#2f6b3a', '#8b2f23', '#355d8a', '#6b4a2b'];
-    const signs = ['#7a1f12', '#2f5d3a', '#24476b', '#6b3a1f'];
-    const awnings = ['#b8322a', '#2f6b3a', '#24476b', '#c47a1c', '#7a1f4a'];
+    const shutters = ['#2f7d8f', '#2a6f9e', '#3d7a4a', '#9aa0a3', '#7a5236', '#e2e0da', '#3a8a94'];
+    const roofs = ['#7a4a3a', '#6b3f30', '#8a5240', '#5e3a2c', '#80493a'];
+    const signs = ['#7a1f12', '#2f5d3a', '#24476b', '#6b3a1f', '#1f4b52'];
+    const awnings = ['#b8322a', '#2f6b3a', '#24476b', '#c47a1c', '#7a1f4a', '#3a3f45'];
     const len = rand(7, 11);
     for (const side of [-1, 1]) {
-      if (this.castleCd <= 0 && side === this.lastSide) {
-        this.decor.push({ kind: 'castle', side, z, len: 14 });
-        continue;
-      }
-      if (this.hallCd <= 0 && side === -this.lastSide) {
-        this.decor.push({ kind: 'townhall', side, z, len: len + 2, seed: 1 });
-        this.hallCd = rand(450, 650);
-        continue;
-      }
+      if (this.castleCd <= 0 && side === this.lastSide) { this.decor.push({ kind: 'castle', side, z, len: 14 }); continue; }
+      const hall = this.hallCd <= 0 && side === -this.lastSide;
+      if (hall) this.hallCd = rand(450, 650);
       this.decor.push({
-        kind: 'building', side, z: z + (side > 0 ? 0 : rand(-2, 2)), len, h: rand(3.6, 5.4), floors: Math.random() < 0.5 ? 2 : 3,
-        col: pick(cols), colN: pick(colsN), roof: pick(['#8b3a2a', '#6e2f23', '#7a4a3a']), shutter: pick(shutters), signCol: pick(signs), awning: pick(awnings),
-        sign: pick(this.adult ? lvl.adultShops : lvl.shops), seed: Math.floor(rand(0, 9)),
+        kind: hall ? 'townhall' : 'building', side, z: z + (side > 0 ? 0 : rand(-1.5, 1.5)), len: hall ? len + 2 : len,
+        h: hall ? 5.6 : rand(4.2, 5.6), floors: hall ? 3 : Math.random() < 0.7 ? 3 : 2, cols: hall ? 5 : Math.random() < 0.5 ? 3 : 4,
+        dormers: 1 + Math.floor(Math.random() * 3), flowers: Math.random() < 0.5, balcony: Math.random() < 0.2, bulb: hall || Math.random() < 0.05,
+        col: hall ? '#efe3c8' : pick(cols), colN: pick(colsN), roof: pick(roofs), shutter: hall ? '#5a6b3a' : pick(shutters),
+        signCol: hall ? '#24476b' : pick(signs), awning: hall ? '#24476b' : (Math.random() < 0.7 ? pick(awnings) : null),
+        sign: hall ? (this.adult ? 'Hôtel de Ville · After' : 'Hôtel de Ville') : pick(this.adult ? lvl.adultShops : lvl.shops), seed: Math.floor(rand(0, 9)),
       });
+      // arbres taillés en boule le long du trottoir
+      for (let tz = z + rand(1, 4); tz < z + len; tz += rand(9, 12)) this.decor.push({ kind: 'tree', side, z: tz, seed: Math.floor(rand(0, 9)) });
       const r = Math.random();
-      if (r < 0.5) this.decor.push({ kind: r < 0.22 ? 'terrace' : r < 0.46 ? 'lamp' : 'kiosk', side, z: z + rand(1, len - 1), flag: Math.random() < 0.5 ? 'ch' : 'fr' });
+      if (r < 0.32) this.decor.push({ kind: 'terrace', side, z: z + rand(1, len - 1), seed: Math.floor(rand(0, 9)) });
+      else if (r < 0.4) this.decor.push({ kind: 'fountain', side, z: z + len * 0.5 });
+      else if (r < 0.5) this.decor.push({ kind: 'lamp', side, z: z + rand(1, len - 1), flag: Math.random() < 0.5 ? 'ch' : 'fr' });
     }
+    // fanions colorés au-dessus de la rue, bannière de Bulle au taureau
+    this.garlandCd = (this.garlandCd ?? 0) - len;
+    if (this.garlandCd <= 0) { this.decor.push({ kind: 'garland', side: 0, z: z + len * 0.5 }); this.garlandCd = rand(18, 30); }
+    this.bannerCd = (this.bannerCd ?? 20) - len;
+    if (this.bannerCd <= 0) { this.decor.push({ kind: 'banner', side: Math.random() < 0.5 ? -1 : 1, z: z + len * 0.3 }); this.bannerCd = rand(45, 75); }
     if (this.castleCd <= 0) { this.castleCd = rand(260, 380); this.lastSide *= -1; return z + 15; }
-    return z + len + 0.4;
+    return z + len + 0.2;
   }
 
   spawnRow(z) {
@@ -355,13 +363,18 @@ export class Game {
     S.drawRoad(c, P, W, H, adult, this.travel);
     if (adult) this.discoBeams(c);
     // décor du plus loin au plus près
-    const dec = [...this.decor].sort((a, b) => b.z - a.z);
+    const key = (d) => (d.kind === 'building' || d.kind === 'townhall' || d.kind === 'castle' ? d.z + d.len : d.z);
+    const dec = [...this.decor].sort((a, b) => key(b) - key(a));
     for (const d of dec) {
-      if (d.kind === 'building') S.drawBuilding(c, P, d, adult, t);
-      else if (d.kind === 'townhall') S.drawTownHall(c, P, d, adult);
+      if (d.kind === 'building') G.drawFacade(c, P, d, adult, t);
+      else if (d.kind === 'townhall') { G.drawFacade(c, P, d, adult, t); S.drawTownHall(c, P, d, adult); }
+      else if (d.kind === 'tree') G.drawTree(c, P, d, adult);
+      else if (d.kind === 'garland') G.drawGarland(c, P, d, adult, t);
+      else if (d.kind === 'banner') G.drawBullBanner(c, P, d, adult, t);
+      else if (d.kind === 'fountain') G.drawFountain(c, P, d, adult, t);
       else if (d.kind === 'kiosk') S.drawKiosk(c, P, d, adult);
       else if (d.kind === 'castle') S.drawCastleSide(c, P, d, adult);
-      else if (d.kind === 'terrace') D.drawTerrace(c, P, d, adult);
+      else if (d.kind === 'terrace') G.drawTerrace(c, P, d, adult);
       else if (d.kind === 'lamp') D.drawLamp(c, P, d, adult);
       else if (d.kind === 'blonde' && d.z > -2 && d.z < 70) {
         const s = P.s(d.z); drawBlonde(c, P.x(d.side * 1.42, d.z), P.y(d.z), P.unit * 1.5 * s, t, { wink: d.z < 12 && Math.sin(t * 4) > 0, kiss: d.z < 10 ? 1 : 0 });

@@ -6,6 +6,7 @@
 //  néoclassiques alignées), Hôtel de Ville de 1809 avec fronton aux armoiries et deux lions.
 // =====================================================================
 import { roundRect as rr, rand } from './draw.js';
+import { drawChurchFar } from './grandrue.js';
 
 // ---------- utilitaires couleur ----------
 function hex(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
@@ -53,37 +54,41 @@ export function drawSky(c, W, H, hor, adult, t) {
 // ----------------------------- MONTAGNES : Préalpes + Moléson -----------------------------
 function ridge(c, W, base, pts, h) { c.beginPath(); c.moveTo(0, base); for (let i = 0; i < pts.length; i += 2) c.lineTo(pts[i] * W, base - pts[i + 1] * h); c.lineTo(W, base); c.closePath(); }
 export function drawMountains(c, W, H, hor, adult) {
-  // chaîne lointaine (brume bleutée)
-  let g = c.createLinearGradient(0, hor * 0.35, 0, hor);
-  g.addColorStop(0, adult ? '#3a1260' : '#9fb6cf'); g.addColorStop(1, adult ? '#2a0c47' : '#c4d3e2');
+  // Préalpes lointaines (brume)
+  let g = c.createLinearGradient(0, hor * 0.4, 0, hor);
+  g.addColorStop(0, adult ? '#3a1260' : '#a9bdd2'); g.addColorStop(1, adult ? '#2a0c47' : '#cbd8e5');
   c.fillStyle = g;
-  ridge(c, W, hor, [0, .3, .07, .45, .14, .38, .22, .55, .3, .4, .38, .5, .46, .36, .55, .48, .63, .62, .7, .5, .78, .58, .86, .42, .93, .5, 1, .4], hor * 0.75);
+  ridge(c, W, hor, [0, .22, .08, .3, .16, .26, .26, .36, .62, .34, .7, .42, .78, .3, .86, .38, .94, .28, 1, .3], hor * 0.75);
   c.fill();
-  // Moléson : pyramide caractéristique à gauche, avec neige
-  g = c.createLinearGradient(W * 0.05, 0, W * 0.4, 0);
-  g.addColorStop(0, adult ? '#1d0733' : '#5d7a96'); g.addColorStop(0.55, adult ? '#2b0c47' : '#7b97b1'); g.addColorStop(1, adult ? '#1d0733' : '#55718c');
+  // Moléson : grand pic pointu au bout de la Grand-Rue
+  const px = W * 0.46, ph = hor * 0.66;
+  g = c.createLinearGradient(px - W * 0.3, 0, px + W * 0.3, 0);
+  g.addColorStop(0, adult ? '#1d0733' : '#56708a'); g.addColorStop(0.48, adult ? '#2f0f4f' : '#7d97b0'); g.addColorStop(0.52, adult ? '#1a062d' : '#4d6680'); g.addColorStop(1, adult ? '#16052a' : '#465d75');
   c.fillStyle = g;
-  ridge(c, W, hor, [0, .12, .06, .2, .12, .32, .2, .52, .225, .55, .25, .5, .32, .33, .42, .16, .52, .1, .62, .14, .72, .22, .8, .17, .9, .12, 1, .16], hor * 0.9);
-  c.fill();
+  c.beginPath(); c.moveTo(px - W * 0.42, hor); c.lineTo(px - W * 0.2, hor - ph * 0.42); c.lineTo(px - W * 0.08, hor - ph * 0.78);
+  c.lineTo(px - W * 0.02, hor - ph * 0.95); c.lineTo(px, hor - ph); c.lineTo(px + W * 0.03, hor - ph * 0.93); c.lineTo(px + W * 0.1, hor - ph * 0.7);
+  c.lineTo(px + W * 0.22, hor - ph * 0.45); c.lineTo(px + W * 0.32, hor - ph * 0.3); c.lineTo(px + W * 0.48, hor); c.closePath(); c.fill();
+  // rochers et neige sur le sommet
   if (!adult) {
-    c.fillStyle = 'rgba(250,252,255,0.95)';
-    c.beginPath(); c.moveTo(W * 0.18, hor - hor * 0.42); c.lineTo(W * 0.2, hor - hor * 0.468); c.lineTo(W * 0.225, hor - hor * 0.495);
-    c.lineTo(W * 0.25, hor - hor * 0.45); c.lineTo(W * 0.27, hor - hor * 0.4); c.lineTo(W * 0.25, hor - hor * 0.41); c.lineTo(W * 0.23, hor - hor * 0.385);
-    c.lineTo(W * 0.21, hor - hor * 0.41); c.closePath(); c.fill();
+    c.fillStyle = 'rgba(248,251,255,0.95)';
+    c.beginPath(); c.moveTo(px - W * 0.05, hor - ph * 0.86); c.lineTo(px, hor - ph); c.lineTo(px + W * 0.03, hor - ph * 0.93); c.lineTo(px + W * 0.07, hor - ph * 0.78);
+    c.lineTo(px + W * 0.03, hor - ph * 0.8); c.lineTo(px, hor - ph * 0.74); c.lineTo(px - W * 0.03, hor - ph * 0.8); c.closePath(); c.fill();
+    c.strokeStyle = 'rgba(255,255,255,0.35)'; c.lineWidth = 1.2;
+    for (const k of [-0.12, -0.06, 0.06, 0.13]) { c.beginPath(); c.moveTo(px + W * k * 0.3, hor - ph * 0.85); c.lineTo(px + W * k, hor - ph * 0.5); c.stroke(); }
   }
-  // forêts et pâturages de la Gruyère
-  g = c.createLinearGradient(0, hor * 0.8, 0, hor);
-  g.addColorStop(0, adult ? '#2a0b40' : '#5f9a43'); g.addColorStop(1, adult ? '#1e0830' : '#83b85a');
+  // pâturages et forêts de la Gruyère
+  g = c.createLinearGradient(0, hor * 0.78, 0, hor);
+  g.addColorStop(0, adult ? '#2a0b40' : '#5c9640'); g.addColorStop(1, adult ? '#1e0830' : '#86ba5c');
   c.fillStyle = g; c.beginPath(); c.moveTo(0, hor);
-  for (let x = 0; x <= W + 1; x += W / 16) c.lineTo(x, hor - hor * (0.06 + 0.035 * Math.sin(x / W * 11) + 0.02 * Math.sin(x / W * 29)));
+  for (let x = 0; x <= W + 1; x += W / 16) c.lineTo(x, hor - hor * (0.07 + 0.035 * Math.sin(x / W * 11) + 0.02 * Math.sin(x / W * 29)));
   c.lineTo(W, hor); c.fill();
-  // sapins
   c.fillStyle = adult ? '#16062a' : '#2f5e2c';
-  for (let i = 0; i < 18; i++) {
-    const x = (i * 0.057 + 0.01) * W, base = hor - hor * (0.03 + 0.03 * Math.sin(i * 1.7)), h = hor * (0.05 + (i % 3) * 0.012);
+  for (let i = 0; i < 22; i++) {
+    const x = (i * 0.047 + 0.01) * W, base = hor - hor * (0.03 + 0.035 * Math.abs(Math.sin(i * 1.7))), h = hor * (0.05 + (i % 3) * 0.014);
     c.beginPath(); c.moveTo(x, base - h); c.lineTo(x - h * 0.3, base); c.lineTo(x + h * 0.3, base); c.fill();
   }
-  drawCastle(c, W * 0.6, hor, hor * 0.3, adult, 1);
+  drawChurchFar(c, W * 0.64, hor, hor * 0.4, adult);
+  drawCastle(c, W * 0.3, hor, hor * 0.17, adult, 1);
 }
 
 // ----------------------------- CHÂTEAU DE BULLE -----------------------------
@@ -314,10 +319,9 @@ export function drawBuilding(c, P, b, adult, t) {
 // ----------------------------- HÔTEL DE VILLE (1809) -----------------------------
 export function drawTownHall(c, P, b, adult) {
   // on réutilise la façade, plus large, avec fronton aux armoiries et deux lions
-  drawBuilding(c, P, { ...b, floors: 3, h: 5.6, col: '#efe3c8', colN: '#3a1a52', roof: '#7a3e2c', shutter: '#5a6b3a', signCol: '#24476b', sign: adult ? 'Hôtel de Ville · After' : 'Hôtel de Ville', awning: '#24476b' }, adult, 0);
   const zm = b.z + b.len * 0.5;
   if (zm < 1 || zm > 80) return;
-  const s = P.s(zm), x = P.x(b.side * 1.6, zm), top = P.y(zm) - 5.6 * P.unit * s;
+  const s = P.s(zm), x = P.x(b.side * 1.62, zm), top = P.y(zm) - 5.6 * P.unit * s * 1.0;
   const w = P.unit * 1.5 * s, h = P.unit * 0.55 * s;
   c.fillStyle = adult ? '#4a2068' : '#f4ead6';
   c.beginPath(); c.moveTo(x - w / 2, top); c.lineTo(x, top - h); c.lineTo(x + w / 2, top); c.fill();
