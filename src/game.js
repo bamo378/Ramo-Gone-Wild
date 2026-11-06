@@ -251,7 +251,7 @@ export class Game {
   }
 
   face(fx, dur) { this.p.fx = fx; this.p.fxT = dur; }
-  closeupShow(expr, text) { this.closeup = { t: 0, expr, text }; }
+  closeupShow(expr, text) { this.closeup = { t: 0, expr }; if (text) this.ui.message(text); }
   foam() { const r = this.ramoScreen(); for (let i = 0; i < 24; i++) this.parts.push({ kind: 'dot', x: r.x, y: r.y - this.ramoH * 0.8, vx: rand(-160, 160), vy: rand(-380, -120), life: 0.9, max: 0.9, size: rand(4, 9), color: '#fffdf2', g: 600 }); }
 
   hurt(e) {
@@ -438,12 +438,7 @@ export class Game {
     if (b.t > 1.3 && b.t < 2.4 && Math.random() < 0.5) {
       this.parts.push({ kind: 'heart', x: x - side * 10, y: H * 0.86 - size * 0.85, vx: (r.x - x) * 1.4, vy: -rand(20, 80), life: 0.8, max: 0.8, size: rand(10, 18), color: pick(['#ff2fa8', '#ff1744']), g: 40, rot: 0 });
     }
-    if (b.t > 0.3 && b.t < 2.6) {
-      const tx = Math.max(86, Math.min(W - 86, x)), ty = H * 0.86 - size * 1.08;
-      c.fillStyle = 'rgba(255,255,255,0.95)'; D.roundRect(c, tx - 80, ty - 34, 160, 34, 12); c.fill();
-      c.fillStyle = '#d0103a'; c.font = '800 14px Nunito, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText(b.line || (b.line = pick(MSG_BLONDE)), tx, ty - 17, 150);
-    }
+    if (!b.said && b.t > 1.1) { b.said = true; this.ui.message('💋 « ' + pick(MSG_BLONDE) + ' »'); }
   }
 
   drawLove(c) {
@@ -496,7 +491,7 @@ export class Game {
     const cu = this.closeup, W = this.W;
     const k = cu.t < 0.25 ? cu.t / 0.25 : cu.t > 1.35 ? Math.max(0, 1 - (cu.t - 1.35) / 0.25) : 1;
     const size = Math.min(W * 0.28, 130) * (0.6 + 0.4 * k);
-    const cx = W - size * 0.62 - 8, cy = this.H * 0.24;
+    const cx = W / 2, cy = this.H * 0.165;
     c.save(); c.globalAlpha = k;
     const shake = cu.expr === 'grimace' ? Math.sin(cu.t * 60) * 4 : 0;
     c.beginPath(); c.arc(cx + shake, cy, size * 0.55, 0, 7); c.closePath();

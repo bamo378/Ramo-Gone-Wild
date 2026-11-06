@@ -127,7 +127,7 @@ function bindSecret() {
   });
   $('btnSecretOk').onclick = () => {
     const err = $('secretErr');
-    if ($('secretCode').value.trim() !== '69') { err.textContent = 'Mauvais code… 🦫'; err.classList.remove('hidden'); return; }
+    if ($('secretCode').value.trim() !== '90') { err.textContent = 'Mauvais code… 🦫'; err.classList.remove('hidden'); return; }
     if (!$('secretAge').checked) { err.textContent = 'Réservé aux plus de 18 ans.'; err.classList.remove('hidden'); return; }
     hide('secret'); mode = 'adult'; applyMode(); updateHello(); initAudio(); sfx.wolf();
   };
