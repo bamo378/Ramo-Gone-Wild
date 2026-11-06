@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#1b6fd1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>RAMO GONE WILD</title>
+  <meta name="description" content="Un castor, des bières et zéro limite ! Le castor est lâché dans Bulle." />
+  <meta property="og:title" content="🦫🍺 RAMO GONE WILD" />
+  <meta property="og:description" content="Le castor est lâché dans Bulle ! Tu crois pouvoir battre mon score ?" />
+  <meta property="og:image" content="/assets/share.jpg" />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="/assets/icon.png" />
+  <link rel="apple-touch-icon" href="/assets/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- Chargement -->
+  <div id="loading" class="screen show">
+    <div class="loader-beer"><div class="fill"></div></div>
+    <p>Ramo se prépare…</p>
+  </div>
+
+  <!-- Accueil -->
+  <div id="menu" class="screen">
+    <div class="menu-inner">
+      <h1 id="logo" class="logo" aria-label="RAMO GONE WILD">
+        <span class="l1">RAMO</span><span class="l2">GONE WILD</span>
+      </h1>
+      <p class="slogan" id="slogan">Un castor, des bières et zéro limite !</p>
+      <div class="portrait"><img src="/assets/ramo-full.webp" alt="Ramo le castor" /></div>
+      <p class="level-name" id="levelName">MISSION APÉRO — BULLE</p>
+      <button class="btn big" id="btnPlay">JOUER</button>
+      <div class="row">
+        <button class="btn" id="btnRecords">🏆 RECORDS</button>
+        <button class="btn" id="btnSound">🔊 SON</button>
+      </div>
+      <button class="btn ghost hidden" id="btnClassic">↩ Retour au mode classique</button>
+      <p class="hello" id="hello"></p>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="pill score"><small>SCORE</small><b id="hScore">0</b></div>
+      <div class="pill lives" id="hLives"></div>
+      <button class="pause-btn" id="btnPause" aria-label="Pause">❚❚</button>
+    </div>
+    <div class="hud-sub">
+      <span class="pill small" id="hDist">0 m</span>
+      <span class="pill small bonus hidden" id="hBonus"></span>
+    </div>
+    <div id="toast" class="toast"></div>
+  </div>
+
+  <!-- Pause -->
+  <div id="pause" class="screen modal-screen">
+    <div class="card">
+      <h2>PAUSE</h2>
+      <p>Ramo reprend son souffle…</p>
+      <button class="btn big" id="btnResume">REPRENDRE</button>
+      <button class="btn" id="btnQuit">Menu</button>
+    </div>
+  </div>
+
+  <!-- Love Room : passer -->
+  <button id="btnSkipLove" class="btn skip hidden">Passer ▶</button>
+
+  <!-- Fin de partie -->
+  <div id="over" class="screen modal-screen">
+    <div class="card over-card">
+      <div class="over-ramo"><img id="overImg" src="/assets/ramo-head.webp" alt="" /></div>
+      <h2 id="overTitle">FIN DE TOURNÉE !</h2>
+      <p id="overMsg"></p>
+      <div class="stats">
+        <div><small>SCORE</small><b id="oScore">0</b></div>
+        <div><small>RECORD</small><b id="oBest">0</b></div>
+        <div><small>DISTANCE</small><b id="oDist">0 m</b></div>
+      </div>
+      <p class="new-record hidden" id="oRecord">🎉 NOUVEAU RECORD ! 🎉</p>
+      <button class="btn big" id="btnReplay">REJOUER</button>
+      <button class="btn share" id="btnShare">📲 DÉFIER UN AMI</button>
+      <button class="btn ghost" id="btnMenu">Menu</button>
+    </div>
+  </div>
+
+  <!-- Records -->
+  <div id="records" class="screen modal-screen">
+    <div class="card">
+      <h2>🏆 RECORDS</h2>
+      <div id="recList"></div>
+      <p class="note">Records enregistrés sur ce téléphone. Le classement mondial arrive bientôt !</p>
+      <button class="btn" id="btnPseudo">✏️ Changer de pseudo</button>
+      <button class="btn big" id="btnRecClose">OK</button>
+    </div>
+  </div>
+
+  <!-- Pseudo -->
+  <div id="pseudo" class="screen modal-screen">
+    <div class="card">
+      <h2>Ton pseudo ?</h2>
+      <p>Pour signer tes records de tournée.</p>
+      <input id="pseudoInput" maxlength="16" placeholder="ex. Castor Fou" autocomplete="off" />
+      <button class="btn big" id="btnPseudoOk">C'EST PARTI</button>
+    </div>
+  </div>
+
+  <!-- Fenêtre secrète -->
+  <div id="secret" class="screen modal-screen">
+    <div class="card secret-card">
+      <h2>🤫 Accès secret</h2>
+      <p>Code ?</p>
+      <input id="secretCode" inputmode="numeric" maxlength="4" autocomplete="off" />
+      <label class="check"><input type="checkbox" id="secretAge" /> J'ai au moins 18 ans</label>
+      <p class="err hidden" id="secretErr"></p>
+      <button class="btn big" id="btnSecretOk">ENTRER</button>
+      <button class="btn ghost" id="btnSecretCancel">Annuler</button>
+    </div>
+  </div>
+
+  <div id="rotate" class="rotate">📱 Tourne ton téléphone en mode portrait</div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
