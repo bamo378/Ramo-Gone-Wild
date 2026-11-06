@@ -1,5 +1,5 @@
 import { Game } from './game.js';
-import { store } from './storage.js';
+import { store, submitOnline, fetchBoard } from './storage.js';
 import { initAudio, setSound, startMusic, stopMusic, sfx } from './audio.js';
 import { MSG_GAMEOVER, MSG_GAMEOVER_ADULT, SHARE_TEXT } from './config.js';
 
@@ -27,8 +27,14 @@ const ui = {
     const t = $('toast'); t.textContent = text; t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), dur * 1000);
   },
-  gameOver({ score, distance, mode: m }) {
+  gameOver({ score, distance, mode: m, duration }) {
     const isRecord = store.submit(m, score, distance);
+    const rk = $('oRank'); rk.textContent = '🌍 Envoi au classement…';
+    submitOnline(m, score, distance, duration).then((res) => {
+      if (!res) { rk.textContent = '🌍 Classement indisponible pour le moment'; return; }
+      rk.innerHTML = res.rank === 1 ? `🥇 <b>N°1 du classement</b> ${res.total > 1 ? `sur ${res.total} joueurs` : '(premier joueur inscrit)'} !` : `🌍 Ton meilleur score est <b>${res.rank}e</b> sur ${res.total} joueurs`;
+      lastRank = res.rank;
+    });
     $('oScore').textContent = score.toLocaleString('fr-CH');
     $('oBest').textContent = store.best(m).toLocaleString('fr-CH');
     $('oDist').textContent = `${distance.toLocaleString('fr-CH')} m`;
@@ -43,6 +49,8 @@ const ui = {
   loveRoom(on) { $('btnSkipLove').classList.toggle('hidden', !on); },
 };
 let lastScore = 0;
+let lastRank = null;
+let boardMode = 'classic';
 let pendingPlay = false;
 let howtoSeen = false; // le mode d'emploi s'affiche avant la première partie de chaque visite
 let game;
@@ -103,7 +111,7 @@ function bindInput() {
     if (map[e.key] && game.state === 'play') { e.preventDefault(); game.input(map[e.key]); }
     else if (e.key === 'Enter' && $('over').classList.contains('show')) play();
   });
-  document.addEventListener('touchmove', (e) => { if (e.target.tagName !== 'INPUT') e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchmove', (e) => { if (e.target.tagName !== 'INPUT' && !e.target.closest('.board, .howto-card')) e.preventDefault(); }, { passive: false });
   document.addEventListener('gesturestart', (e) => e.preventDefault());
   document.addEventListener('dblclick', (e) => e.preventDefault());
 }
@@ -140,7 +148,7 @@ function bindSecret() {
 // ------------------------------------------------ partage WhatsApp
 async function share() {
   const url = location.origin + '/';
-  const text = `${SHARE_TEXT} Mon score : ${lastScore.toLocaleString('fr-CH')} 🍺`;
+  const text = `${SHARE_TEXT} Mon score : ${lastScore.toLocaleString('fr-CH')} 🍺${lastRank ? ` (n°${lastRank} du classement)` : ''}`;
   if (navigator.share) {
     try { await navigator.share({ title: 'RAMO GONE WILD', text, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
   }
@@ -148,11 +156,25 @@ async function share() {
   window.open(`https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`, '_blank');
 }
 
+const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+
 function renderRecords() {
-  const rows = [`<div class="rec"><span>🍺 Mode classique</span><b>${store.best('classic').toLocaleString('fr-CH')}</b></div>`,
-    `<div class="rec"><span>📏 Plus longue course</span><b>${store.bestDist('classic').toLocaleString('fr-CH')} m</b></div>`];
-  if (mode === 'adult') rows.push(`<div class="rec adult"><span>🔥 After Dark</span><b>${store.best('adult').toLocaleString('fr-CH')}</b></div>`);
-  $('recList').innerHTML = `<p>Joueur : <b>${store.pseudo || '—'}</b></p>` + rows.join('');
+  if (mode !== 'adult') boardMode = 'classic';
+  const tabs = mode === 'adult'
+    ? `<div class="tabs"><button class="tab ${boardMode === 'classic' ? 'on' : ''}" data-m="classic">🍺 Classique</button><button class="tab ${boardMode === 'adult' ? 'on' : ''}" data-m="adult">🔥 18+</button></div>` : '';
+  const mine = `<div class="rec ${boardMode === 'adult' ? 'adult' : ''}"><span>📱 Ton record (${esc(store.pseudo || '—')})</span><b>${store.best(boardMode).toLocaleString('fr-CH')}</b></div>`;
+  $('recList').innerHTML = tabs + mine + `<h3 class="board-title">🌍 CLASSEMENT PUBLIC</h3><div class="board" id="board"><p class="note">Chargement…</p></div>`;
+  $('recList').querySelectorAll('.tab').forEach((b) => (b.onclick = () => { boardMode = b.dataset.m; renderRecords(); }));
+  const want = boardMode;
+  fetchBoard(want).then((res) => {
+    if (want !== boardMode || !$('board')) return;
+    if (!res) { $('board').innerHTML = '<p class="note">Classement indisponible pour le moment.</p>'; return; }
+    if (!res.top.length) { $('board').innerHTML = '<p class="note">Personne pour l\'instant… Joue une partie et deviens le n°1 !</p>'; return; }
+    const medal = (r) => (r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : r);
+    let html = res.top.map((r) => `<div class="row ${r.me ? 'me' : ''}"><span class="rk">${medal(r.rank)}</span><span class="ps">${esc(r.pseudo)}</span><b>${r.score.toLocaleString('fr-CH')}</b></div>`).join('');
+    if (res.mine && res.mine.rank > 100) html += `<div class="row me"><span class="rk">${res.mine.rank}</span><span class="ps">${esc(store.pseudo)}</span><b>${res.mine.score.toLocaleString('fr-CH')}</b></div>`;
+    $('board').innerHTML = html + `<p class="note">${res.total} joueur${res.total > 1 ? 's' : ''} au classement</p>`;
+  });
 }
 
 async function boot() {

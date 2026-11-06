@@ -284,7 +284,7 @@ export class Game {
     if (this.lives <= 0) {
       this.state = 'over';
       sfx.gameover();
-      setTimeout(() => this.ui.gameOver({ score: this.score, distance: Math.floor(this.travel * GAME.metersPerUnit), beers: this.beers, mode: this.mode }), 900);
+      setTimeout(() => this.ui.gameOver({ score: this.score, distance: Math.floor(this.travel * GAME.metersPerUnit), beers: this.beers, mode: this.mode, duration: Math.round(this.elapsed) }), 900);
     }
     this.emitHud();
   }

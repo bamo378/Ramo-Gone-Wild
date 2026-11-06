@@ -1,0 +1,64 @@
+// Records locaux (localStorage) + classement public en ligne (fonction Netlify /api/scores, stockage Netlify Blobs).
+// Le serveur vérifie que chaque score est plausible (durée de partie, distance) et limite les envois abusifs.
+// Aucun faux score n'est jamais affiché : le classement ne montre que les scores réellement envoyés par les joueurs.
+
+export const ONLINE = true;
+const KEY = 'ramo-gone-wild-v1';
+
+const defaults = { pseudo: '', sound: true, best: { classic: 0, adult: 0 }, bestDist: { classic: 0, adult: 0 }, history: [] };
+
+function load() {
+  try { return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; }
+  catch { return { ...defaults }; }
+}
+let data = load();
+function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* stockage indisponible */ } }
+
+export const store = {
+  get pseudo() { return data.pseudo; },
+  set pseudo(v) { data.pseudo = String(v).slice(0, 16); save(); },
+  get tutorial() { return !!data.tutorial; },
+  set tutorial(v) { data.tutorial = !!v; save(); },
+  get sound() { return data.sound; },
+  set sound(v) { data.sound = !!v; save(); },
+  best(mode) { return data.best[mode] || 0; },
+  bestDist(mode) { return data.bestDist[mode] || 0; },
+  history() { return data.history || []; },
+  // Retourne true si nouveau record
+  get playerId() {
+    if (!data.playerId) {
+      const r = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
+      data.playerId = r.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 36); save();
+    }
+    return data.playerId;
+  },
+  submit(mode, score, distance) {
+    const isRecord = score > (data.best[mode] || 0);
+    if (isRecord) data.best[mode] = score;
+    if (distance > (data.bestDist[mode] || 0)) data.bestDist[mode] = distance;
+    data.history = [{ mode, score, distance, date: Date.now() }, ...(data.history || [])].slice(0, 20);
+    save();
+    return isRecord;
+  },
+};
+
+// Envoie le score au classement public. Retourne { rank, total, best } ou null si hors ligne.
+export async function submitOnline(mode, score, distance, duration) {
+  if (!ONLINE) return null;
+  try {
+    const r = await fetch('/api/scores', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: store.playerId, pseudo: data.pseudo, mode, score, distance, duration }),
+    });
+    return r.ok ? await r.json() : null;
+  } catch { return null; }
+}
+
+// Récupère le top 100 public d'un mode. Retourne null si hors ligne.
+export async function fetchBoard(mode) {
+  if (!ONLINE) return null;
+  try {
+    const r = await fetch(`/api/scores?mode=${mode}&me=${encodeURIComponent(store.playerId)}`);
+    return r.ok ? await r.json() : null;
+  } catch { return null; }
+}

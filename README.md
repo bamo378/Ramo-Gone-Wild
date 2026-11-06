@@ -7,13 +7,15 @@ Ouvrir le lien Netlify sur un téléphone, en portrait. Glisser ← → pour cha
 Sur ordinateur : flèches du clavier (P / Échap = pause).
 
 ## Structure
-- `index.html`, `style.css` — écrans et interface
+Le site publié est dans `public/` ; le classement en ligne dans `netlify/functions/scores/`.
+- `public/index.html`, `public/style.css` — écrans et interface
 - `src/main.js` — menus, commandes, partage, accès secret
 - `src/game.js` — moteur du jeu (génération, collisions, bonus, Love Room)
 - `src/draw.js` — tous les dessins (Bulle, obstacles, Ramo, personnages)
 - `src/config.js` — niveaux, bonus, messages (ajouter un niveau = une entrée dans `LEVELS`)
 - `src/audio.js` — sons et musique synthétisés (aucun fichier audio)
-- `src/storage.js` — records locaux + préparation du classement en ligne (Supabase + Netlify Functions)
+- `src/storage.js` — records locaux + envoi/lecture du classement public
 - `assets/` — images de Ramo
+- `netlify/functions/scores/` — API `/api/scores` (top 100 classique et 18+, contrôle de vraisemblance des scores, limite anti-abus), stockage Netlify Blobs
 
-Site statique : aucune compilation nécessaire, Netlify publie le dossier tel quel.
+Aucune compilation : Netlify publie `public/` et déploie la fonction automatiquement à chaque push.

@@ -1,0 +1,9 @@
+{
+  "name": "ramo-gone-wild",
+  "private": true,
+  "type": "module",
+  "description": "RAMO GONE WILD — runner 2.5D mobile dans Bulle",
+  "dependencies": {
+    "@netlify/blobs": "^11.1.8"
+  }
+}

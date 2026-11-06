@@ -128,3 +128,19 @@ body.adult .level-name { background: rgba(255,47,196,.3); }
 .adult-only { display: none !important; }
 body.adult .adult-only { display: flex !important; }
 body.adult .swipes div, body.adult .legend div { background: #2d0f47; }
+
+/* Classement public */
+.tabs { display: flex; gap: 6px; }
+.tab { flex: 1; border: 0; border-radius: 12px; padding: 8px; font: 900 15px Nunito, sans-serif; background: rgba(0,0,0,.08); color: inherit; }
+.tab.on { background: #ff4fd8; color: #fff; }
+.board-title { margin: 6px 0 0; font-size: 15px; letter-spacing: 1px; }
+.board { max-height: 42vh; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.board .row { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 12px; padding: 8px 12px; font-weight: 800; }
+.board .row.me { outline: 3px solid #ffb21f; background: #fff6d8; }
+.board .rk { width: 28px; text-align: center; font-weight: 900; }
+.board .ps { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board b { color: #c2410c; }
+body.adult .board .row { background: #2d0f47; }
+body.adult .board .row.me { background: #4a1660; outline-color: #ff4fd8; }
+body.adult .board b { color: #ff4fd8; }
+.rank-line { font-size: 15px; }
