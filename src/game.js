@@ -53,7 +53,7 @@ export class Game {
     this.blonde = null; // { t, kind }
     this.closeup = null;
     this.msgCd = 6; this.shake = 0;
-    this.loveDone = 0; this.sinceLove = 0;
+    this.loveDone = 0; this.sinceLove = 8; this.adultCd = 3; this.adultCycle = 0;
     // décor initial
     for (let z = -4; z < GAME.spawnFar; z += 0) z = this.spawnDecor(z);
   }
@@ -132,20 +132,20 @@ export class Game {
     const jumpLane = lanes.find((l) => obs[l] === 'barrel' || obs[l] === 'crate');
     if (jumpLane !== undefined && Math.random() < 0.4) this.ents.push({ kind: 'pick', type: 'big', lane: jumpLane, z, high: true });
     // bonus
-    if (Math.random() < 0.13) {
-      const lane = free.length ? pick(free) : pick(lanes);
+    const lane = free.length ? pick(free) : pick(lanes);
+    if (this.adult && this.adultCd <= 0) {
+      // After Dark : un bonus coquin garanti toutes les ~6 s, et une Love Room toutes les ~20 s
       let type;
-      if (this.adult && Math.random() < 0.6) {
-        const r = Math.random();
-        type = (this.sinceLove > 35 || r < 0.12) ? 'love' : r < 0.45 ? 'charm' : r < 0.75 ? 'heat' : 'crazy';
-        if (type === 'love') this.sinceLove = 0;
-      } else {
-        const r = Math.random(); type = r < 0.45 ? 'big' : r < 0.72 ? 'chope' : 'golden';
-      }
+      if (this.sinceLove > 20) { type = 'love'; this.sinceLove = 0; }
+      else { type = ['charm', 'heat', 'charm', 'crazy'][this.adultCycle++ % 4]; }
+      this.ents.push({ kind: 'pick', type, lane, z: z + 6, high: false });
+      this.adultCd = rand(5, 7);
+    } else if (Math.random() < 0.13) {
+      const r = Math.random(); const type = r < 0.45 ? 'big' : r < 0.72 ? 'chope' : 'golden';
       this.ents.push({ kind: 'pick', type, lane, z: z + 6, high: false });
     }
     // en mode adulte : la blonde attend parfois sur le trottoir
-    if (this.adult && Math.random() < 0.18) this.decor.push({ kind: 'blonde', side: Math.random() < 0.5 ? -1 : 1, z: z + rand(2, 8), waved: false });
+    if (this.adult && Math.random() < 0.45) this.decor.push({ kind: 'blonde', side: Math.random() < 0.5 ? -1 : 1, z: z + rand(2, 8), waved: false });
   }
 
   // ------------------------------------------------ boucle
@@ -162,7 +162,7 @@ export class Game {
 
   update(dt) {
     const p = this.p, b = this.buffs;
-    this.elapsed += dt; this.sinceLove += dt;
+    this.elapsed += dt; this.sinceLove += dt; this.adultCd -= dt;
     const heatBoost = b.heat > 0 ? 1.35 : 1;
     this.speed = Math.min(GAME.maxSpeed, this.speed + GAME.speedRamp * dt);
     const v = this.speed * heatBoost;
@@ -209,7 +209,7 @@ export class Game {
       }
     }
     // la blonde salue
-    for (const d of this.decor) if (d.kind === 'blonde' && !d.waved && d.z < 8) { d.waved = true; if (Math.random() < 0.5) { sfx.wolf(); this.ui.message(pick(MSG_BLONDE)); } }
+    for (const d of this.decor) if (d.kind === 'blonde' && !d.waved && d.z < 8) { d.waved = true; if (Math.random() < 0.8) { sfx.wolf(); this.ui.message(pick(MSG_BLONDE)); } }
     // score
     const mult = b.double > 0 ? 2 : 1;
     this.score = this.beerPts + Math.floor(this.travel * GAME.metersPerUnit);
