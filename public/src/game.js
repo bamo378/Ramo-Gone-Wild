@@ -49,7 +49,7 @@ export class Game {
     this.travel = 0; this.elapsed = 0;
     this.score = 0; this.beerPts = 0; this.lives = GAME.lives; this.beers = 0;
     this.ents = []; this.decor = []; this.parts = [];
-    this.rowCd = 30; this.decorCd = 0; this.lastSide = 1;
+    this.rowCd = 30; this.decorCd = 0; this.lastSide = 1; this.lastFree = null;
     this.castleCd = 120; this.hallCd = 60;
     this.p = { lane: 0, x: 0, jumpH: 0, vy: 0, slide: 0, inv: 0, hitAnim: 0, fx: {}, fxT: 0, wag: 0 };
     this.buffs = { invincible: 0, double: 0, heat: 0, crazy: 0 };
@@ -81,10 +81,10 @@ export class Game {
     const p = this.p;
     if (dir === 'left' && p.lane > -1) { p.lane--; sfx.lane(); }
     else if (dir === 'right' && p.lane < 1) { p.lane++; sfx.lane(); }
-    else if (dir === 'up' && p.jumpH <= 0.02 ) { p.vy = 3.3; p.slide = 0; sfx.jump(); }
+    else if (dir === 'up' && p.jumpH <= 0.02) { p.vy = 3.3 * this.jumpK(); p.slide = 0; sfx.jump(); }
     else if (dir === 'down') {
       if (p.jumpH > 0.05) p.vy = -5; // redescendre vite
-      p.slide = 0.72; sfx.slide();
+      p.slide = 0.72 / this.jumpK(); sfx.slide();
     }
   }
 
@@ -127,15 +127,42 @@ export class Game {
     return z + len + 0.2;
   }
 
+  // Intensité 0 → 1 : monte avec le temps ET continue après la vitesse max (sinon le jeu devient facile)
+  // saut plus vif à grande vitesse : même hauteur, temps en l'air plus court (sinon on « survole » deux rangées)
+  jumpK() { return Math.min(1.85, Math.max(1, this.speed / 25)); }
+  airTime() { return 0.917 / this.jumpK(); }
+  intensity() { return Math.min(1, Math.max(0, (this.elapsed - 12) / 150)); }
+
+  // Séquence spéciale à haute vitesse : slalom de vaches / chars, voies alternées
+  spawnSlalom(z) {
+    const n = 3 + Math.floor(Math.random() * 3);
+    let lane = pick([-1, 1]);
+    for (let i = 0; i < n; i++) {
+      const zz = z + i * this.speed * 0.55;
+      this.ents.push({ kind: 'obs', type: pick(['cow', 'cart']), lane, z: zz, hit: false });
+      this.ents.push({ kind: 'obs', type: pick(['cow', 'cart']), lane: 0, z: zz, hit: false });
+      for (let k = 0; k < 2; k++) this.ents.push({ kind: 'pick', type: 'beer', lane: -lane, z: zz - 2 - k * 2.6, high: false });
+      lane = -lane;
+    }
+    this.lastFree = -lane;
+    return (n - 1) * this.speed * 0.55;
+  }
+
   spawnRow(z) {
-    const d = Math.min(1, this.elapsed / 110);
+    const d = this.intensity();
     const lanes = [-1, 0, 1];
     const obs = {};
     const easy = this.elapsed < 15;
-    let n = !easy && Math.random() < 0.25 + 0.45 * d ? 2 : 1;
-    let allowTriple = !easy && Math.random() < 0.18 * d;
-    if (allowTriple) n = 3;
+    if (!easy && d > 0.35 && Math.random() < 0.06 + 0.1 * d) return this.spawnSlalom(z);
+    let n = !easy && Math.random() < 0.3 + 0.5 * d ? 2 : 1;
+    if (!easy && Math.random() < 0.08 + 0.3 * d) n = 3;
     const shuffled = lanes.sort(() => Math.random() - 0.5);
+    // deux rangées serrées de suite : la voie libre doit rester atteignable (voie voisine)
+    if (n === 2 && this.lastFree !== undefined && this.lastFree !== null) {
+      const okFree = lanes.filter((l) => Math.abs(l - this.lastFree) <= 1);
+      const free = pick(okFree);
+      shuffled.splice(0, 3, ...lanes.filter((l) => l !== free), free);
+    }
     for (let i = 0; i < n; i++) {
       const lane = shuffled[i];
       let type;
@@ -145,7 +172,8 @@ export class Game {
       obs[lane] = type;
       this.ents.push({ kind: 'obs', type, lane, z, hit: false });
     }
-    // une rangée de 3 obstacles ne contient jamais de bloc : il y a toujours un passage (saut / glissade / voie libre)
+    const freeLanes = lanes.filter((l) => !obs[l] || OBSTACLES[obs[l]].need !== 'block');
+    this.lastFree = n >= 2 && freeLanes.length === 1 ? freeLanes[0] : null;
     // bières dans les voies libres, ou au-dessus d'un tonneau (à attraper en sautant)
     const free = lanes.filter((l) => !obs[l]);
     const beerLane = free.length ? pick(free) : null;
@@ -170,6 +198,7 @@ export class Game {
     }
     // en mode adulte : la blonde attend parfois sur le trottoir
     if (this.adult && Math.random() < 0.45) this.decor.push({ kind: 'blonde', side: Math.random() < 0.5 ? -1 : 1, z: z + rand(2, 8), waved: false });
+    return 0;
   }
 
   // ------------------------------------------------ boucle
@@ -195,7 +224,7 @@ export class Game {
     // joueur
     p.x += (p.lane - p.x) * Math.min(1, dt * 16);
     if (p.vy !== 0 || p.jumpH > 0) {
-      p.jumpH += p.vy * dt; p.vy -= 7.2 * dt;
+      const k = this.jumpK(); p.jumpH += p.vy * dt; p.vy -= 7.2 * k * k * dt;
       if (p.jumpH <= 0) { p.jumpH = 0; p.vy = 0; }
     }
     if (p.slide > 0) p.slide -= dt;
@@ -211,7 +240,12 @@ export class Game {
     this.decor = this.decor.filter((e) => e.z + (e.len || 1) > -4);
     // génération
     this.rowCd -= dz;
-    if (this.rowCd <= 0) { this.spawnRow(GAME.spawnFar); this.rowCd = this.speed * rand(0.78, 1.15) * (this.elapsed < 15 ? 1.4 : 1); }
+    if (this.rowCd <= 0) {
+      const extra = this.spawnRow(GAME.spawnFar) || 0;
+      // écart entre rangées (en secondes) : se resserre avec l'intensité, mais toujours assez pour atterrir et réagir
+      const gap = this.elapsed < 15 ? rand(1.3, 1.6) : Math.max(this.airTime() + 0.2, (1.05 - 0.37 * this.intensity()) * rand(0.88, 1.12));
+      this.rowCd = extra + this.speed * gap;
+    }
     this.castleCd -= dz; this.hallCd -= dz;
     let far = Math.max(...this.decor.filter((d) => d.kind === 'building' || d.kind === 'castle' || d.kind === 'townhall').map((d) => d.z + d.len), 0);
     while (far < GAME.spawnFar + 20) far = this.spawnDecor(far);

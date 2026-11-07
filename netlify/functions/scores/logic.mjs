@@ -7,7 +7,11 @@ export const MODES = ['classic', 'adult'];
 // Corrections manuelles : record perdu à cause d'un ancien bug d'affichage.
 // Appliquées une seule fois si le score enregistré est plus bas.
 // Raillou a ensuite pris le pseudo « Boss » (même joueur, même ligne du classement).
-export const MANUAL = [{ mode: 'classic', pseudos: ['raillou', 'boss'], score: 13822 }];
+export const MANUAL = [
+  { mode: 'classic', pseudos: ['raillou', 'boss'], score: 13822 },
+  // Bamo : partie perdue à cause d'un bug (identifié par son téléphone, car deux joueurs s'appellent « bamo »)
+  { mode: 'classic', id: 'd9fe6bd5-4ebe-4774-8bae-1b42216f1e6c', score: 15275 },
+];
 const ID_RE = /^[a-z0-9-]{8,40}$/;
 
 const json = (data, status = 200, extra = {}) =>
@@ -38,7 +42,7 @@ async function readBoard(store, mode) {
   }))).filter(Boolean);
   for (const fix of MANUAL) {
     if (fix.mode !== mode) continue;
-    const row = rows.find((r) => fix.pseudos.includes(String(r.pseudo).trim().toLowerCase()));
+    const row = rows.find((r) => (fix.id ? r.id === fix.id : fix.pseudos.includes(String(r.pseudo).trim().toLowerCase())));
     if (row && row.score < fix.score) {
       row.score = fix.score; row.distance = Math.max(row.distance || 0, Math.round(fix.score * 0.4));
       const { id, ...data } = row;
