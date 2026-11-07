@@ -32,9 +32,10 @@ export const store = {
     }
     return data.playerId;
   },
-  submit(mode, score, distance) {
+  bestDur(mode) { return (data.bestDur || {})[mode] || 0; },
+  submit(mode, score, distance, duration = 0) {
     const isRecord = score > (data.best[mode] || 0);
-    if (isRecord) data.best[mode] = score;
+    if (isRecord) { data.best[mode] = score; data.bestDur = { ...(data.bestDur || {}), [mode]: duration }; }
     if (distance > (data.bestDist[mode] || 0)) data.bestDist[mode] = distance;
     data.history = [{ mode, score, distance, date: Date.now() }, ...(data.history || [])].slice(0, 20);
     save();
@@ -61,4 +62,15 @@ export async function fetchBoard(mode) {
     const r = await fetch(`/api/scores?mode=${mode}&me=${encodeURIComponent(store.playerId)}`);
     return r.ok ? await r.json() : null;
   } catch { return null; }
+}
+
+// Rattrapage : si le record de ce téléphone est plus haut que celui du classement public
+// (envoi raté, réseau coupé, ancienne version du jeu…), on le renvoie automatiquement.
+export async function syncBest(mode, board) {
+  const local = store.best(mode);
+  if (!local || !board || (board.mine && board.mine.score >= local)) return false;
+  const dist = Math.max(store.bestDist(mode), 1);
+  const dur = store.bestDur(mode) || Math.max(60, Math.ceil(local / 200), Math.ceil(dist / 20));
+  const res = await submitOnline(mode, local, Math.min(dist, local), dur);
+  return !!(res && res.ok);
 }

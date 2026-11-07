@@ -1,5 +1,5 @@
 import { Game } from './game.js';
-import { store, submitOnline, fetchBoard } from './storage.js';
+import { store, submitOnline, fetchBoard, syncBest } from './storage.js';
 import { initAudio, setSound, startMusic, stopMusic, sfx } from './audio.js';
 import { MSG_GAMEOVER, MSG_GAMEOVER_ADULT, SHARE_TEXT } from './config.js';
 
@@ -28,7 +28,7 @@ const ui = {
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), dur * 1000);
   },
   gameOver({ score, distance, mode: m, duration }) {
-    const isRecord = store.submit(m, score, distance);
+    const isRecord = store.submit(m, score, distance, duration);
     const rk = $('oRank'); rk.textContent = '🌍 Envoi au classement…';
     submitOnline(m, score, distance, duration).then((res) => {
       if (!res) { rk.textContent = '🌍 Classement indisponible pour le moment'; return; }
@@ -166,7 +166,8 @@ function renderRecords() {
   $('recList').innerHTML = tabs + mine + `<h3 class="board-title">🌍 CLASSEMENT PUBLIC</h3><div class="board" id="board"><p class="note">Chargement…</p></div>`;
   $('recList').querySelectorAll('.tab').forEach((b) => (b.onclick = () => { boardMode = b.dataset.m; renderRecords(); }));
   const want = boardMode;
-  fetchBoard(want).then((res) => {
+  fetchBoard(want).then(async (res) => {
+    if (res && await syncBest(want, res)) res = await fetchBoard(want); // record local pas encore public : on le rattrape
     if (want !== boardMode || !$('board')) return;
     if (!res) { $('board').innerHTML = '<p class="note">Classement indisponible pour le moment.</p>'; return; }
     if (!res.top.length) { $('board').innerHTML = '<p class="note">Personne pour l\'instant… Joue une partie et deviens le n°1 !</p>'; return; }
@@ -207,5 +208,6 @@ async function boot() {
   document.addEventListener('visibilitychange', () => { if (document.hidden && game.state === 'play') togglePause(); });
 
   hide('loading'); show('menu');
+  for (const md of ['classic', 'adult']) if (store.best(md)) fetchBoard(md).then((b) => syncBest(md, b));
 }
 boot();

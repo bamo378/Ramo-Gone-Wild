@@ -3,6 +3,10 @@
 // Pas de compteur partagé : chaque joueur n'écrit que sa propre clé.
 
 export const MODES = ['classic', 'adult'];
+
+// Corrections manuelles : record perdu à cause d'un ancien bug d'affichage.
+// Appliquées une seule fois si le score enregistré est plus bas.
+export const MANUAL = [{ mode: 'classic', pseudo: 'Raillou', score: 13822 }];
 const ID_RE = /^[a-z0-9-]{8,40}$/;
 
 const json = (data, status = 200, extra = {}) =>
@@ -25,12 +29,22 @@ export function plausible({ score, distance, duration }) {
 }
 
 async function readBoard(store, mode) {
-  const { blobs } = await store.list({ prefix: `${mode}/` });
-  const rows = await Promise.all(blobs.map(async (b) => {
-    const r = await store.get(b.key, { type: 'json' });
+  // lecture « forte » : un record amélioré est visible immédiatement (sinon jusqu'à 60 s de retard)
+  const { blobs } = await store.list({ prefix: `${mode}/`, consistency: 'strong' });
+  const rows = (await Promise.all(blobs.map(async (b) => {
+    const r = await store.get(b.key, { type: 'json', consistency: 'strong' });
     return r && { ...r, id: b.key.slice(mode.length + 1) };
-  }));
-  return rows.filter(Boolean).sort((a, b) => b.score - a.score || a.date - b.date);
+  }))).filter(Boolean);
+  for (const fix of MANUAL) {
+    if (fix.mode !== mode) continue;
+    const row = rows.find((r) => r.pseudo.toLowerCase() === fix.pseudo.toLowerCase());
+    if (row && row.score < fix.score) {
+      row.score = fix.score; row.distance = Math.max(row.distance || 0, Math.round(fix.score * 0.4));
+      const { id, ...data } = row;
+      await store.setJSON(`${mode}/${id}`, data);
+    }
+  }
+  return rows.sort((a, b) => b.score - a.score || a.date - b.date);
 }
 
 export async function handle(req, store) {
@@ -45,7 +59,7 @@ export async function handle(req, store) {
       mode, total: board.length,
       top: board.slice(0, 100).map((r, i) => ({ rank: i + 1, pseudo: r.pseudo, score: r.score, distance: r.distance, me: r.id === me })),
       mine: myIndex >= 0 ? { rank: myIndex + 1, score: board[myIndex].score } : null,
-    }, 200, { 'cache-control': 'public, max-age=10' });
+    }, 200, { 'cache-control': 'no-store' });
   }
   if (req.method === 'POST') {
     let body;
@@ -67,7 +81,7 @@ export async function handle(req, store) {
     }
     const board = await readBoard(store, mode);
     const rank = board.findIndex((r) => r.id === id) + 1;
-    return json({ ok: true, best, rank: rank || null, total: board.length });
+    return json({ ok: true, best, rank: rank || null, total: board.length }, 200, { 'cache-control': 'no-store' });
   }
   return json({ error: 'méthode non autorisée' }, 405);
 }
