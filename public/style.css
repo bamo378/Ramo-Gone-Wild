@@ -174,3 +174,7 @@ body.adult .lv-moleson { background: linear-gradient(135deg, #7a3cff, #2a0c6b); 
 .pr-ramo { position: absolute; top: 50%; transform: translate(-50%, -55%); font-size: 18px; left: 0; }
 .pr-a, .pr-b { font-size: 18px; }
 .ctab { font-size: 14px; }
+
+.lv-traverse { background: linear-gradient(135deg, #8fd16a, #3dbb6e 55%, #1f7a4a); }
+body.adult .lv-traverse { background: linear-gradient(135deg, #4fe3ff, #2a6fd6 50%, #3a1a7a); }
+.lv-traverse .lv-txt em { background: #ff3b3b; }

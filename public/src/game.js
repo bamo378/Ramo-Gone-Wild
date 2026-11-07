@@ -3,6 +3,7 @@
 // =====================================================================
 import { GAME, PICKUPS, OBSTACLES, LEVELS, levelById, MSG_CLASSIC, MSG_ADULT, MSG_HIT, MSG_BLONDE, MSG_LOVE_OUT, MSG_MOLESON, MSG_GATE, MSG_COMBO, MSG_HIT_M } from './config.js';
 import * as M from './moleson.js';
+import { Crossy } from './crossy.js';
 import * as D from './draw.js';
 import * as S from './scene.js';
 import { drawBlonde } from './blonde.js';
@@ -41,6 +42,7 @@ export class Game {
       x: (lane, z) => W / 2 + lane * laneW * (Dd / (Dd + z)),
     };
     this.ramoH = Math.min(H * 0.25, W * 0.4 * (620 / 528));
+    if (this.cross) this.cross.resize();
   }
 
   reset(mode, course = this.course || 'bulle') {
@@ -48,6 +50,7 @@ export class Game {
     this.adult = mode === 'adult';
     this.level = levelById(course); this.course = this.level.id;
     this.mole = this.course === 'moleson';
+    this.cross = null;
     this.speed = this.level.speed.start;
     // chrono, portes, stations, arrivée (Moléson) + combos (tous parcours)
     this.timeLeft = this.level.startTime || 0; this.gateCd = 3; this.stationIdx = 0; this.decorFar = NaN;
@@ -66,6 +69,7 @@ export class Game {
     this.msgCd = 14; this.shake = 0; this.hints = [];
     this.loveDone = 0; this.sinceLove = 8; this.adultCd = 3; this.adultCycle = 0;
     // décor initial + arche de départ
+    if (this.level.kind === 'crossy') return; // Traverse Bulle a son propre décor
     for (let z = -4; z < GAME.spawnFar; z += 0) z = this.spawnDecor(z);
     this.decor.push({ kind: 'arch', z: 3.2, label: this.mole ? 'DÉPART · MOLÉSON 2002 m' : 'DÉPART · GRAND-RUE', side: 0 });
   }
@@ -73,6 +77,7 @@ export class Game {
   start(mode, course) {
     this.reset(mode, course);
     this.reported = false; this.decorFar = NaN;
+    if (this.level.kind === 'crossy') { this.cross = new Crossy(this, mode); this.state = 'play'; this.cross.hud(); return; }
     this.state = 'intro'; this.introT = 0; this.counted = -1;
     this.hints = this.mole ? [
       { t: 2.2, text: '🚩 Passe dans les portes de slalom : +3 secondes !' },
@@ -116,6 +121,8 @@ export class Game {
   // ------------------------------------------------ commandes
   input(dir) {
     if (this.state !== 'play') return;
+    if (this.cross) { this.cross.input(dir); return; }
+    if (dir === 'tap') return;
     const p = this.p;
     if (dir === 'left' && p.lane > -1) { p.lane--; sfx.lane(); }
     else if (dir === 'right' && p.lane < 1) { p.lane++; sfx.lane(); }
@@ -289,6 +296,12 @@ export class Game {
   }
 
   update(dt) {
+    if (this.cross) {
+      this.cross.update(dt); this.updateParts(dt);
+      if (this.shake > 0) this.shake -= dt;
+      if (this.closeup) { this.closeup.t += dt; if (this.closeup.t > 1.6) this.closeup = null; }
+      return;
+    }
     const p = this.p, b = this.buffs;
     this.elapsed += dt; this.sinceLove += dt; this.adultCd -= dt; this.gateCd -= dt;
     const heatBoost = b.heat > 0 ? 1.35 : 1;
@@ -569,6 +582,13 @@ export class Game {
   render() {
     const c = this.c, W = this.W, H = this.H, P = this.P, adult = this.adult, t = this.t;
     c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    if (this.cross) {
+      c.save();
+      if (this.shake > 0) c.translate(rand(-5, 5) * this.shake * 3, rand(-5, 5) * this.shake * 3);
+      this.cross.render(c); D.drawParticles(c, this.parts);
+      if (this.closeup) this.drawCloseup(c);
+      c.restore(); return;
+    }
     c.save();
     if (this.shake > 0) c.translate(rand(-6, 6) * this.shake * 3, rand(-6, 6) * this.shake * 3);
     // animation de départ : la caméra part d'un gros plan sur Ramo puis recule

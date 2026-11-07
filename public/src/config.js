@@ -56,6 +56,14 @@ export const LEVELS = [
     board: (mode) => mode, // classements « classic » / « adult » (historique)
   },
   {
+    id: 'traverse',
+    name: 'TRAVERSE BULLE',
+    kind: 'crossy',      // autre moteur : saut de case en case (src/crossy.js)
+    obstacles: { jump: ['barrel'], slide: ['barrier'], block: ['cow'] },
+    speed: { start: 13, max: 13, ramp: 0 },
+    board: (mode) => `traverse-${mode}`,
+  },
+  {
     id: 'moleson',
     name: 'LA DESCENTE DU MOLÉSON',
     obstacles: { jump: ['rock', 'fondue'], slide: ['chair'], block: ['sapin', 'snowman', 'cow'] },
@@ -69,6 +77,7 @@ export const LEVELS = [
   },
 ];
 export const levelById = (id) => LEVELS.find((l) => l.id === id) || LEVELS[0];
+export const LEVEL_ORDER = ['traverse', 'bulle', 'moleson']; // ordre d'affichage dans le choix du parcours
 
 export const MSG_START = [
   'Le castor est lâché dans Bulle !',

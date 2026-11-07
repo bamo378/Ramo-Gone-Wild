@@ -1,7 +1,7 @@
 import { Game } from './game.js';
 import { store, submitOnline, fetchBoard, syncBest } from './storage.js';
 import { initAudio, setSound, startMusic, stopMusic, sfx } from './audio.js';
-import { MSG_GAMEOVER, MSG_GAMEOVER_ADULT, SHARE_TEXT, LEVELS, levelById } from './config.js';
+import { MSG_GAMEOVER, MSG_GAMEOVER_ADULT, SHARE_TEXT, LEVELS, LEVEL_ORDER, levelById } from './config.js';
 
 const $ = (id) => document.getElementById(id);
 const show = (id) => $(id).classList.add('show');
@@ -16,8 +16,9 @@ const boardKey = (c, m) => levelById(c).board(m);
 function loadImg(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
 
 const ui = {
-  hud({ score, lives, distance, bonus, combo, mole, timeLeft, progress }) {
+  hud({ score, lives, distance, bonus, combo, mole, timeLeft, progress, cross }) {
     $('hScore').textContent = score.toLocaleString('fr-CH');
+    $('hLives').classList.toggle('hidden', !!cross);
     const cb = $('hCombo');
     if (combo > 1) { const txt = `COMBO x${combo}`; if (cb.textContent !== txt) { cb.textContent = txt; cb.classList.remove('pop'); void cb.offsetWidth; cb.classList.add('pop'); } cb.classList.remove('hidden'); }
     else cb.classList.add('hidden');
@@ -28,7 +29,7 @@ const ui = {
       $('hProgFill').style.width = `${(progress * 100).toFixed(1)}%`;
       $('hProgRamo').style.left = `${(progress * 100).toFixed(1)}%`;
     }
-    $('hDist').textContent = `${distance.toLocaleString('fr-CH')} m`;
+    $('hDist').textContent = cross ? `🐾 ${distance} rangées` : `${distance.toLocaleString('fr-CH')} m`;
     const icon = mode === 'adult' ? '💋' : '🍺';
     const html = Array.from({ length: 3 }, (_, i) => `<span class="${i < lives ? '' : 'lost'}">${icon}</span>`).join('');
     if ($('hLives').innerHTML !== html) $('hLives').innerHTML = html;
@@ -52,11 +53,16 @@ const ui = {
     $('oBest').textContent = store.best(m).toLocaleString('fr-CH');
     $('oDist').textContent = `${distance.toLocaleString('fr-CH')} m`;
     $('oDistLabel').textContent = 'DISTANCE';
+    const cross = crs === 'traverse';
+    if (cross) { $('oDist').textContent = `${distance}`; $('oDistLabel').textContent = 'RANGÉES'; }
     if (mole && result === 'finish') { $('oDist').textContent = `${timeLeft.toFixed(1)} s`; $('oDistLabel').textContent = 'CHRONO RESTANT'; }
-    $('overMsg').textContent = mole
+    const CROSS_MSG = { car: 'Aplati par la circulation de Bulle ! Regarde à gauche ET à droite…', train: 'Le Gruyère Express ne s\'arrête pour personne !',
+      water: 'Plouf ! Ramo a bu la tasse dans la Trême.', eagle: 'L\'aigle du Moléson n\'aime pas les castors qui traînent !' };
+    $('overMsg').textContent = cross ? (CROSS_MSG[result] || 'Fin de la traversée !') : mole
       ? (result === 'finish' ? 'Arrivé à Gruyères ! Une meringue double-crème bien méritée 🍮' : result === 'timeout' ? 'Le télésiège est fermé… Passe plus de portes pour gagner du temps !' : 'Gamelle dans la poudreuse ! La luge est en miettes.')
       : pick(md === 'adult' ? MSG_GAMEOVER_ADULT : MSG_GAMEOVER);
     $('overTitle').textContent = isRecord ? 'QUEL CASTOR !'
+      : cross ? ({ car: 'SPLAT !', train: 'TCHOU-TCHOU !', water: 'PLOUF !', eagle: 'ENVOLÉ !' }[result] || 'FIN !')
       : mole ? (result === 'finish' ? 'ARRIVÉ ! 🏁' : result === 'timeout' ? 'TROP TARD ! ⏱' : 'GAMELLE !')
       : (md === 'adult' ? 'RIDEAU !' : 'FIN DE TOURNÉE !');
     $('oRecord').classList.toggle('hidden', !isRecord);
@@ -86,15 +92,17 @@ function applyMode() {
   $('slogan').textContent = mode === 'adult' ? '🔥 RAMO AFTER DARK 🔥' : 'Un castor, des bières et zéro limite !';
   $('levelName').textContent = mode === 'adult' ? '2 PARCOURS · BY NIGHT' : '2 PARCOURS · BULLE & MOLÉSON';
   document.querySelector('meta[name=theme-color]').content = mode === 'adult' ? '#3a0b5e' : '#1b6fd1';
-  game.reset(mode); // décor du menu dans la bonne ambiance
+  game.reset(mode, 'bulle'); // décor du menu dans la bonne ambiance
 }
 function updateHello() { $('hello').textContent = store.pseudo ? `Salut ${store.pseudo} !` : ''; }
 
 // ------------------------------------------------ choix du parcours
 function showLevels() {
-  const cards = LEVELS.map((l) => {
+  const cards = LEVEL_ORDER.map(levelById).map((l) => {
     const best = store.best(l.board(mode));
-    const info = l.id === 'moleson'
+    const info = l.id === 'traverse'
+      ? { emo: '🦫', title: 'TRAVERSE BULLE', desc: 'Saute de case en case : routes, tracteurs, train, la Trême… Jusqu\'où iras-tu ?', tag: 'NOUVEAU · SANS FIN' }
+      : l.id === 'moleson'
       ? { emo: '⛷️', title: 'LA DESCENTE DU MOLÉSON', desc: 'En luge jusqu\'à Gruyères ! Passe les portes de slalom pour gagner du temps.', tag: 'CHRONO · 2,2 km' }
       : { emo: '🍺', title: 'MISSION APÉRO — BULLE', desc: 'La Grand-Rue à fond, des bières partout. Tiens le plus longtemps possible !', tag: 'SANS FIN' };
     return `<button class="level-card lv-${l.id}" data-id="${l.id}">
@@ -139,13 +147,16 @@ function bindInput() {
     fired = true;
     if (Math.abs(dx) > Math.abs(dy)) game.input(dx > 0 ? 'right' : 'left'); else game.input(dy > 0 ? 'down' : 'up');
   }, { passive: true });
-  window.addEventListener('touchend', () => { active = false; }, { passive: true });
+  window.addEventListener('touchend', (e) => {
+    if (active && !fired && game.state === 'play' && !e.target.closest('button')) game.input('tap');
+    active = false;
+  }, { passive: true });
   // souris (ordinateur) : glisser aussi
   let md = null;
   window.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse' && game.state === 'play') md = { x: e.clientX, y: e.clientY }; });
   window.addEventListener('pointerup', (e) => {
     if (!md) return; const dx = e.clientX - md.x, dy = e.clientY - md.y; md = null;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < TH) return;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < TH) { if (!e.target.closest('button')) game.input('tap'); return; }
     if (Math.abs(dx) > Math.abs(dy)) game.input(dx > 0 ? 'right' : 'left'); else game.input(dy > 0 ? 'down' : 'up');
   });
   window.addEventListener('keydown', (e) => {
@@ -204,7 +215,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '
 let boardCourse = 'bulle';
 function renderRecords() {
   if (mode !== 'adult') boardMode = 'classic';
-  const ctabs = `<div class="tabs">${LEVELS.map((l) => `<button class="tab ctab ${boardCourse === l.id ? 'on' : ''}" data-c="${l.id}">${l.id === 'moleson' ? '⛷️ Moléson' : '🍺 Bulle'}</button>`).join('')}</div>`;
+  const ctabs = `<div class="tabs">${LEVEL_ORDER.map((id) => `<button class="tab ctab ${boardCourse === id ? 'on' : ''}" data-c="${id}">${{ traverse: '🦫 Traverse', moleson: '⛷️ Moléson', bulle: '🍺 Bulle' }[id]}</button>`).join('')}</div>`;
   const tabs = mode === 'adult'
     ? `<div class="tabs"><button class="tab ${boardMode === 'classic' ? 'on' : ''}" data-m="classic">Classique</button><button class="tab ${boardMode === 'adult' ? 'on' : ''}" data-m="adult">🔥 18+</button></div>` : '';
   const key = boardKey(boardCourse, boardMode);
