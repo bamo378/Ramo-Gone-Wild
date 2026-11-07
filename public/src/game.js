@@ -1,7 +1,8 @@
 // =====================================================================
 //  Moteur du runner 2.5D
 // =====================================================================
-import { GAME, PICKUPS, OBSTACLES, LEVELS, MSG_CLASSIC, MSG_ADULT, MSG_HIT, MSG_BLONDE, MSG_LOVE_OUT } from './config.js';
+import { GAME, PICKUPS, OBSTACLES, LEVELS, levelById, MSG_CLASSIC, MSG_ADULT, MSG_HIT, MSG_BLONDE, MSG_LOVE_OUT, MSG_MOLESON, MSG_GATE, MSG_COMBO, MSG_HIT_M } from './config.js';
+import * as M from './moleson.js';
 import * as D from './draw.js';
 import * as S from './scene.js';
 import { drawBlonde } from './blonde.js';
@@ -15,7 +16,7 @@ export class Game {
     this.cv = canvas; this.c = canvas.getContext('2d');
     this.img = images; this.ui = ui;
     this.level = LEVELS[0];
-    this.state = 'idle'; // idle | play | pause | love | over
+    this.state = 'idle'; // idle | intro | play | pause | love | win | over
     this.t = 0;
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -42,10 +43,17 @@ export class Game {
     this.ramoH = Math.min(H * 0.25, W * 0.4 * (620 / 528));
   }
 
-  reset(mode) {
+  reset(mode, course = this.course || 'bulle') {
     this.mode = mode;
     this.adult = mode === 'adult';
-    this.speed = GAME.startSpeed;
+    this.level = levelById(course); this.course = this.level.id;
+    this.mole = this.course === 'moleson';
+    this.speed = this.level.speed.start;
+    // chrono, portes, stations, arrivée (Moléson) + combos (tous parcours)
+    this.timeLeft = this.level.startTime || 0; this.gateCd = 3; this.stationIdx = 0; this.decorFar = NaN;
+    this.level = { ...this.level, stations: (this.level.stations || []).map((st) => ({ ...st })) }; this.finishSpawned = false; this.result = null;
+    this.combo = 0; this.comboMult = 1; this.progress = 0; this.tick = 0; this.winT = 0;
+    this.introT = 0; this.counted = -1;
     this.travel = 0; this.elapsed = 0;
     this.score = 0; this.beerPts = 0; this.lives = GAME.lives; this.beers = 0;
     this.ents = []; this.decor = []; this.parts = [];
@@ -57,21 +65,51 @@ export class Game {
     this.closeup = null;
     this.msgCd = 14; this.shake = 0; this.hints = [];
     this.loveDone = 0; this.sinceLove = 8; this.adultCd = 3; this.adultCycle = 0;
-    // décor initial
+    // décor initial + arche de départ
     for (let z = -4; z < GAME.spawnFar; z += 0) z = this.spawnDecor(z);
+    this.decor.push({ kind: 'arch', z: 3.2, label: this.mole ? 'DÉPART · MOLÉSON 2002 m' : 'DÉPART · GRAND-RUE', side: 0 });
   }
 
-  start(mode) {
-    this.reset(mode);
-    this.state = 'play';
-    this.hints = [
+  start(mode, course) {
+    this.reset(mode, course);
+    this.reported = false; this.decorFar = NaN;
+    this.state = 'intro'; this.introT = 0; this.counted = -1;
+    this.hints = this.mole ? [
+      { t: 2.2, text: '🚩 Passe dans les portes de slalom : +3 secondes !' },
+      { t: 5.8, text: '☝️ Saute les rochers et les fondues' },
+      { t: 9.4, text: '👇 Baisse-toi sous les télésièges' },
+      { t: 13, text: '⏱ Arrive à Gruyères avant la fin du chrono !' },
+    ] : [
       { t: 2.6, text: '👈 👉 Glisse à gauche / à droite pour changer de voie' },
       { t: 6.2, text: '☝️ Glisse vers le haut pour sauter les tonneaux' },
       { t: 9.8, text: '👇 Glisse vers le bas sous les banderoles' },
-      { t: 13.4, text: '🍺 Attrape un max de bières !' },
+      { t: 13.4, text: '🍺 Enchaîne les bières sans te cogner : COMBO !' },
     ];
-    this.ui.message(pick(['Le castor est lâché dans Bulle !', 'Mission apéro : GO !', 'Bulle n\'était pas prête pour ça !']));
     this.emitHud();
+  }
+
+  // ------------------------------------------------ animation de départ (3, 2, 1, GO)
+  updateIntro(dt) {
+    this.introT += dt;
+    const n = Math.floor(this.introT / 0.8); // 0..3 → « 3 », « 2 », « 1 », « GO »
+    if (n !== this.counted && n <= 3) {
+      this.counted = n;
+      if (n < 3) sfx.beep(false); else { sfx.beep(true); this.goBurst(); }
+    }
+    if (this.introT > 0.8 * 3 + 0.35) this.beginPlay();
+    this.updateParts(dt);
+  }
+  skipIntro() { if (this.state === 'intro') { if (this.counted < 3) { sfx.beep(true); this.goBurst(); } this.beginPlay(); } }
+  goBurst() {
+    const r = this.ramoScreen();
+    this.burst(r.x, r.y - this.ramoH * 0.6, 'confetti', 40, {});
+    if (this.mole) for (let i = 0; i < 30; i++) this.parts.push({ kind: 'dot', x: r.x + rand(-40, 40), y: r.y, vx: rand(-220, 220), vy: rand(-320, -80), life: 0.8, max: 0.8, size: rand(3, 7), color: '#ffffff', g: 500 });
+    this.face({ wink: 1 }, 1);
+  }
+  beginPlay() {
+    this.state = 'play'; this.last = performance.now();
+    this.ui.message(this.mole ? pick(['Le castor dévale le Moléson !', 'GO GO GO ! Direction Gruyères !', 'Accroche-toi à ta luge !'])
+      : pick(['Le castor est lâché dans Bulle !', 'Mission apéro : GO !', 'Bulle n\'était pas prête pour ça !']));
   }
   pause(on) { if (this.state === 'play' && on) this.state = 'pause'; else if (this.state === 'pause' && !on) { this.state = 'play'; this.last = performance.now(); } }
 
@@ -90,6 +128,7 @@ export class Game {
 
   // ------------------------------------------------ génération
   spawnDecor(z) {
+    if (this.mole) return this.spawnDecorMoleson(z);
     // Grand-Rue de Bulle : façades continues des deux côtés + mobilier urbain
     const lvl = this.level;
     const cols = ['#efe6cf', '#f1dd9c', '#ec9e8f', '#f2b9aa', '#f3f0e8', '#ddd3c2', '#e8c98a', '#f0e2c0', '#e9a896', '#e4dccb'];
@@ -127,6 +166,26 @@ export class Game {
     return z + len + 0.2;
   }
 
+  // Décor de la descente : sapins, chalets, pylônes du télésiège
+  spawnDecorMoleson(z) {
+    const len = rand(5, 8);
+    for (const side of [-1, 1]) {
+      const n = 1 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) this.decor.push({ kind: 'sapinD', side, z: z + rand(0, len), off: rand(2.05, 3.6), size: rand(0.8, 1.25), seed: Math.floor(rand(0, 9)), len: 0.5 });
+    }
+    if (Math.random() < 0.3) {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      this.decor.push({ kind: 'chalet', side, z: z + len * 0.5, sign: Math.random() < 0.7 ? pick(this.adult ? M.MOLESON_SIGNS_ADULT : M.MOLESON_SIGNS) : null, len: 1 });
+    }
+    this.pylonCd = (this.pylonCd ?? 0) - len;
+    if (this.pylonCd <= 0) {
+      const py = { kind: 'pylon', side: this.pylonSide || 1, z: z + len * 0.5, seed: Math.floor(rand(0, 9)), len: 1 };
+      if (this.lastPylon && this.lastPylon.z > py.z - 40) this.lastPylon.next = py;
+      this.lastPylon = py; this.decor.push(py); this.pylonCd = rand(22, 28);
+    }
+    return z + len;
+  }
+
   // Intensité 0 → 1 : monte avec le temps ET continue après la vitesse max (sinon le jeu devient facile)
   // saut plus vif à grande vitesse : même hauteur, temps en l'air plus court (sinon on « survole » deux rangées)
   jumpK() { return Math.min(1.85, Math.max(1, this.speed / 25)); }
@@ -139,8 +198,8 @@ export class Game {
     let lane = pick([-1, 1]);
     for (let i = 0; i < n; i++) {
       const zz = z + i * this.speed * 0.55;
-      this.ents.push({ kind: 'obs', type: pick(['cow', 'cart']), lane, z: zz, hit: false });
-      this.ents.push({ kind: 'obs', type: pick(['cow', 'cart']), lane: 0, z: zz, hit: false });
+      this.ents.push({ kind: 'obs', type: pick(this.level.obstacles.block), lane, z: zz, hit: false });
+      this.ents.push({ kind: 'obs', type: pick(this.level.obstacles.block), lane: 0, z: zz, hit: false });
       for (let k = 0; k < 2; k++) this.ents.push({ kind: 'pick', type: 'beer', lane: -lane, z: zz - 2 - k * 2.6, high: false });
       lane = -lane;
     }
@@ -167,8 +226,9 @@ export class Game {
       const lane = shuffled[i];
       let type;
       const r = Math.random();
-      if (n === 3) type = pick(['barrel', 'crate', 'barrier']); // jamais 3 blocs : toujours passable en sautant / glissant
-      else type = r < 0.3 ? 'barrel' : r < 0.5 ? 'crate' : r < 0.72 ? 'barrier' : r < 0.87 ? 'cow' : 'cart';
+      const O = this.level.obstacles;
+      if (n === 3) type = Math.random() < 0.7 ? pick(O.jump) : pick(O.slide); // jamais 3 blocs : toujours passable en sautant / glissant
+      else type = r < 0.5 ? pick(O.jump) : r < 0.72 ? pick(O.slide) : pick(O.block);
       obs[lane] = type;
       this.ents.push({ kind: 'obs', type, lane, z, hit: false });
     }
@@ -181,8 +241,14 @@ export class Game {
       const count = Math.floor(rand(3, 6));
       for (let i = 0; i < count; i++) this.ents.push({ kind: 'pick', type: 'beer', lane: beerLane, z: z - 4 - i * 2.6, high: false });
     }
-    const jumpLane = lanes.find((l) => obs[l] === 'barrel' || obs[l] === 'crate');
-    if (jumpLane !== undefined && Math.random() < 0.4) this.ents.push({ kind: 'pick', type: 'big', lane: jumpLane, z, high: true });
+    const jumpLane = lanes.find((l) => obs[l] && OBSTACLES[obs[l]].need === 'jump');
+    if (jumpLane !== undefined && Math.random() < 0.4) this.ents.push({ kind: 'pick', type: this.mole && Math.random() < 0.5 ? 'meringue' : 'big', lane: jumpLane, z, high: true });
+    // Moléson : porte de slalom avant la rangée, dans une voie praticable
+    if (this.mole && this.gateCd <= 0 && this.elapsed > 1) {
+      const ok = lanes.filter((l) => !obs[l] || OBSTACLES[obs[l]].need !== 'block');
+      this.ents.push({ kind: 'gate', lane: pick(ok), z: z - this.speed * 0.42, color: (this.gateN = (this.gateN || 0) + 1) % 2 ? 'red' : 'blue' });
+      this.gateCd = rand(2.4, 3.4);
+    }
     // bonus
     const lane = free.length ? pick(free) : pick(lanes);
     if (this.adult && this.adultCd <= 0) {
@@ -193,7 +259,7 @@ export class Game {
       this.ents.push({ kind: 'pick', type, lane, z: z + 6, high: false });
       this.adultCd = rand(5, 7);
     } else if (Math.random() < 0.13) {
-      const r = Math.random(); const type = r < 0.45 ? 'big' : r < 0.72 ? 'chope' : 'golden';
+      const r = Math.random(); const type = this.mole && r < 0.25 ? 'meringue' : r < 0.45 ? 'big' : r < 0.72 ? 'chope' : 'golden';
       this.ents.push({ kind: 'pick', type, lane, z: z + 6, high: false });
     }
     // en mode adulte : la blonde attend parfois sur le trottoir
@@ -203,21 +269,31 @@ export class Game {
 
   // ------------------------------------------------ boucle
   loop(now) {
-    let dt = (now - this.last) / 1000; this.last = now;
-    if (dt > 0.05) dt = 0.05;
-    this.t += dt;
-    if (this.state === 'play') this.update(dt);
-    else if (this.state === 'love') this.updateLove(dt);
-    else if (this.state === 'over') this.updateParts(dt);
-    this.render();
+    // la prochaine image est programmée AVANT tout calcul : une erreur ne peut plus figer le jeu
     requestAnimationFrame(this.loop);
+    let dt = (now - this.last) / 1000; this.last = now;
+    if (!(dt > 0)) dt = 0; if (dt > 0.05) dt = 0.05;
+    this.t += dt;
+    try {
+      if (this.state === 'play') this.update(dt);
+      else if (this.state === 'intro') this.updateIntro(dt);
+      else if (this.state === 'love') this.updateLove(dt);
+      else if (this.state === 'win') this.updateWin(dt);
+      else if (this.state === 'over') this.updateParts(dt);
+    } catch (e) { this.report(e, 'update'); }
+    try { this.render(); } catch (e) { this.report(e, 'render'); try { this.c.restore(); } catch { /* ok */ } }
+  }
+  report(e, where) {
+    this.errCount = (this.errCount || 0) + 1;
+    if (this.errCount <= 3 && this.ui.reportError) this.ui.reportError(where, e);
   }
 
   update(dt) {
     const p = this.p, b = this.buffs;
-    this.elapsed += dt; this.sinceLove += dt; this.adultCd -= dt;
+    this.elapsed += dt; this.sinceLove += dt; this.adultCd -= dt; this.gateCd -= dt;
     const heatBoost = b.heat > 0 ? 1.35 : 1;
-    this.speed = Math.min(GAME.maxSpeed, this.speed + GAME.speedRamp * dt);
+    const LS = this.level.speed;
+    this.speed = Math.min(LS.max, this.speed + LS.ramp * dt);
     const v = this.speed * heatBoost;
     const dz = v * dt;
     this.travel += dz;
@@ -247,35 +323,51 @@ export class Game {
       this.rowCd = extra + this.speed * gap;
     }
     this.castleCd -= dz; this.hallCd -= dz;
-    let far = Math.max(...this.decor.filter((d) => d.kind === 'building' || d.kind === 'castle' || d.kind === 'townhall').map((d) => d.z + d.len), 0);
+    let far = this.decorFar - dz;
+    if (!(far > -10)) far = Math.max(0, ...this.decor.map((d) => d.z + (d.len || 0)));
     while (far < GAME.spawnFar + 20) far = this.spawnDecor(far);
+    this.decorFar = far;
+    if (this.mole) this.updateCourse(dt);
+    if (this.state !== 'play') return;
     // collisions
     const pz = 0;
     for (const e of this.ents) {
       if (e.done) continue;
       if (Math.abs(e.z - pz) > 0.9) continue;
       const dl = Math.abs(e.lane - p.x);
+      if (e.kind === 'gate') {
+        if (dl < 0.5) { e.done = true; e.passed = true; this.passGate(e); }
+        continue;
+      }
       if (e.kind === 'pick') {
         if (dl < 0.6 && (e.high ? p.jumpH > 0.3 : p.jumpH < 0.8)) { e.done = true; e.gone = true; this.collect(e); }
       } else if (!e.hit && dl < 0.42) {
         const need = OBSTACLES[e.type].need;
         const avoided = (need === 'jump' && p.jumpH > 0.42) || (need === 'slide' && p.slide > 0 && p.jumpH < 0.2);
-        if (avoided) { e.hit = true; if (Math.random() < 0.15) this.burst(this.ramoScreen().x, this.ramoScreen().y - this.ramoH * 0.9, 'text', 1, { text: pick(['Hop !', 'Olé !', 'Trop facile !']), color: '#fff' }); continue; }
+        if (avoided) { e.hit = true; this.addCombo(1); if (Math.random() < 0.15) this.burst(this.ramoScreen().x, this.ramoScreen().y - this.ramoH * 0.9, 'text', 1, { text: pick(['Hop !', 'Olé !', 'Trop facile !']), color: '#fff' }); continue; }
         e.hit = true;
         if (p.inv > 0 || b.invincible > 0 || b.heat > 0) { e.gone = true; this.burst(this.P.x(e.lane, 0), this.P.y(0) - this.P.unit * 0.5, 'dot', 14, { color: '#c99a5b' }); continue; }
         this.hurt(e);
+      } else if (!e.hit && !e.near && dl < 1.15 && OBSTACLES[e.type].need === 'block' && Math.abs(e.z) < 0.3 && this.speed > 24) {
+        // frôlé de justesse : petit bonus
+        e.near = true; this.addCombo(1);
+        const pts = 15 * this.comboMult; this.beerPts += pts;
+        if (Math.random() < 0.5) this.burst(this.ramoScreen().x, this.ramoScreen().y - this.ramoH * 1.05, 'text', 1, { text: `Ouf ! +${pts}`, color: '#9fe8ff', size: 18 });
       }
     }
+    // portes ratées
+    for (const e of this.ents) if (e.kind === 'gate' && !e.done && e.z < -0.9) { e.done = true; e.missed = true; this.combo = 0; this.comboMult = 1; }
     // la blonde salue
     for (const d of this.decor) if (d.kind === 'blonde' && !d.waved && d.z < 8) { d.waved = true; if (Math.random() < 0.8) { sfx.wolf(); this.ui.message(pick(MSG_BLONDE)); } }
     // score
     const mult = b.double > 0 ? 2 : 1;
     this.score = this.beerPts + Math.floor(this.travel * GAME.metersPerUnit);
+    if (this.mole && Math.random() < 0.25) this.snowSpray();
     // consignes de départ
     if (this.hints.length && this.elapsed >= this.hints[0].t) this.ui.message(this.hints.shift().text, 3.4);
     // messages aléatoires
     this.msgCd -= dt;
-    if (this.msgCd <= 0) { this.ui.message(pick(this.adult && Math.random() < 0.7 ? MSG_ADULT : MSG_CLASSIC)); this.msgCd = rand(9, 15); }
+    if (this.msgCd <= 0) { this.ui.message(pick(this.adult && Math.random() < 0.7 ? MSG_ADULT : this.mole ? MSG_MOLESON : MSG_CLASSIC)); this.msgCd = rand(9, 15); }
     // blonde à l'écran (bonus charme)
     if (this.blonde) { this.blonde.t += dt; if (this.blonde.t > 3.2) this.blonde = null; }
     if (this.closeup) { this.closeup.t += dt; if (this.closeup.t > 1.6) this.closeup = null; }
@@ -289,7 +381,8 @@ export class Game {
 
   collect(e) {
     const def = PICKUPS[e.type];
-    const mult = this.buffs.double > 0 ? 2 : 1;
+    this.addCombo(1);
+    const mult = (this.buffs.double > 0 ? 2 : 1) * this.comboMult;
     const pts = def.points * mult;
     this.beerPts += pts;
     if (e.type === 'beer' || e.type === 'big' || e.type === 'golden' || e.type === 'chope') this.beers++;
@@ -297,6 +390,7 @@ export class Game {
     if (pts) this.burst(r.x, r.y - this.ramoH * 1.05, 'text', 1, { text: (mult > 1 && def.points ? `+${pts}` : def.label), color: e.type === 'golden' ? '#ffd700' : '#fff', size: e.type === 'beer' ? 18 : 26 });
     this.burst(r.x, r.y - this.ramoH * 0.6, 'dot', e.type === 'beer' ? 6 : 18, { color: e.type === 'golden' ? '#ffd700' : '#fffbe8' });
     switch (e.type) {
+      case 'meringue': sfx.big(); this.face({ wink: 1 }, 0.9); this.closeupShow('wink', pick(['Meringue double-crème !', 'Miam, la crème de la Gruyère !'])); break;
       case 'beer': sfx.beer(); if (Math.random() < 0.08) this.face({ wink: 1 }, 0.7); break;
       case 'big': sfx.big(); this.face({ wink: 1 }, 0.9); this.closeupShow('wink', pick(['Santé !', 'Une grande, une !', 'Glou glou glou…'])); break;
       case 'golden': sfx.golden(); this.buffs.invincible = def.duration; this.face({ surprise: 1 }, 1);
@@ -310,6 +404,88 @@ export class Game {
     }
   }
 
+  // ------------------------------------------------ combos : chaque bière / porte / esquive enchaînée fait monter le multiplicateur
+  addCombo(n) {
+    this.combo += n;
+    const m = Math.min(5, 1 + Math.floor(this.combo / 8));
+    if (m > this.comboMult) {
+      this.comboMult = m; sfx.combo(m);
+      const r = this.ramoScreen();
+      this.burst(r.x, r.y - this.ramoH * 1.25, 'text', 1, { text: MSG_COMBO[m - 2], color: '#ffd84a', size: 26, life: 1.3 });
+      this.burst(r.x, r.y - this.ramoH * 0.8, 'confetti', 16, {});
+      if (m >= 4) this.face({ wink: 1 }, 1);
+    }
+  }
+
+  passGate(g) {
+    this.addCombo(2);
+    this.timeLeft += this.level.gateBonus;
+    const pts = 25 * this.comboMult; this.beerPts += pts;
+    sfx.gate();
+    const r = this.ramoScreen();
+    this.burst(r.x, r.y - this.ramoH * 1.05, 'text', 1, { text: `+${this.level.gateBonus} s`, color: '#7CFF6B', size: 24 });
+    this.burst(this.P.x(g.lane, 0), this.P.y(0) - this.P.unit, 'confetti', 10, { color: g.color === 'red' ? '#ff4b4b' : '#4fa3ff' });
+    if (Math.random() < 0.25) this.ui.message(pick(MSG_GATE), 1.6);
+  }
+
+  // chrono, stations intermédiaires, arrivée à Gruyères
+  updateCourse(dt) {
+    const L = this.level, meters = this.travel * GAME.metersPerUnit;
+    this.progress = Math.min(1, meters / L.finish);
+    this.timeLeft -= dt;
+    const sec = Math.ceil(this.timeLeft);
+    if (this.timeLeft < 10 && sec !== this.tick && sec > 0) { this.tick = sec; sfx.tick(); }
+    const ahead = GAME.spawnFar * GAME.metersPerUnit; // mètres visibles devant
+    const st = L.stations[this.stationIdx];
+    if (st && meters > st.at - ahead && !st.spawned) { st.spawned = true; this.decor.push({ kind: 'arch', z: GAME.spawnFar, label: st.label, side: 0, station: st }); }
+    if (!this.finishSpawned && meters > L.finish - ahead) { this.finishSpawned = true; this.decor.push({ kind: 'arch', z: GAME.spawnFar, label: 'GRUYÈRES · ARRIVÉE', finish: true, side: 0 }); }
+    for (const d of this.decor) {
+      if (d.kind !== 'arch' || d.done || d.z > 0) continue;
+      d.done = true;
+      if (d.station) {
+        this.stationIdx++; this.timeLeft += d.station.bonus;
+        sfx.record(); this.ui.message(`🚡 ${d.station.label} : +${d.station.bonus} s !`, 2.4);
+        const r = this.ramoScreen(); this.burst(r.x, r.y - this.ramoH, 'confetti', 40, {});
+      } else if (d.finish) return this.finishRun('finish');
+    }
+    if (this.timeLeft <= 0) { this.timeLeft = 0; this.finishRun('timeout'); }
+  }
+
+  finishRun(result) {
+    this.result = result;
+    if (result === 'finish') {
+      const bonus = Math.round(this.timeLeft * 100) + this.lives * 500;
+      this.finishBonus = bonus; this.beerPts += bonus;
+      this.score = this.beerPts + Math.floor(this.travel * GAME.metersPerUnit);
+      this.state = 'win'; this.winT = 0; sfx.record(); setTimeout(() => sfx.golden(), 400);
+      this.ui.message('🏁 ARRIVÉ À GRUYÈRES ! Bonus +' + bonus.toLocaleString('fr-CH'), 3);
+    } else {
+      this.state = 'over'; sfx.gameover();
+      this.ui.message(result === 'timeout' ? '⏱ Le télésiège est fermé ! Trop tard…' : pick(MSG_HIT), 2.5);
+      setTimeout(() => this.endReport(), 1100);
+    }
+    this.emitHud();
+  }
+  updateWin(dt) {
+    this.winT += dt;
+    this.travel += this.speed * dt * Math.max(0, 1 - this.winT); // la luge freine
+    for (const e of this.ents) e.z -= this.speed * dt * Math.max(0, 1 - this.winT);
+    if (Math.random() < 0.7) this.burst(rand(0, this.W), rand(0, this.H * 0.5), Math.random() < 0.5 ? 'confetti' : 'dot', 3, { color: pick(['#ffd700', '#ff4b4b', '#4fa3ff', '#7CFF6B', '#ffffff']) });
+    this.updateParts(dt);
+    if (this.winT > 2.6 && !this.reported) this.endReport();
+  }
+  endReport() {
+    if (this.reported) return; this.reported = true;
+    this.state = 'over';
+    this.ui.gameOver({ score: this.score, distance: Math.floor(this.travel * GAME.metersPerUnit), beers: this.beers, mode: this.mode, duration: Math.round(this.elapsed),
+      course: this.course, result: this.result || 'crash', timeLeft: this.timeLeft, finishBonus: this.finishBonus || 0 });
+  }
+  snowSpray() {
+    const r = this.ramoScreen(), moving = Math.abs(this.p.lane - this.p.x) > 0.05;
+    const n = moving ? 4 : 1;
+    for (let i = 0; i < n; i++) this.parts.push({ kind: 'dot', x: r.x + rand(-this.ramoH * 0.3, this.ramoH * 0.3), y: r.y, vx: rand(-80, 80) + (this.p.x - this.p.lane) * 300, vy: rand(-140, -40), life: 0.5, max: 0.5, size: rand(2, 5), color: this.adult ? '#e8dcff' : '#ffffff', g: 400 });
+  }
+
   face(fx, dur) { this.p.fx = fx; this.p.fxT = dur; }
   closeupShow(expr, text) { this.closeup = { t: 0, expr }; if (text) this.ui.message(text); }
   foam() { const r = this.ramoScreen(); for (let i = 0; i < 24; i++) this.parts.push({ kind: 'dot', x: r.x, y: r.y - this.ramoH * 0.8, vx: rand(-160, 160), vy: rand(-380, -120), life: 0.9, max: 0.9, size: rand(4, 9), color: '#fffdf2', g: 600 }); }
@@ -317,16 +493,18 @@ export class Game {
   hurt(e) {
     const p = this.p;
     this.lives--; p.inv = GAME.hitInvuln; p.hitAnim = 0.6; this.shake = 0.35;
+    this.combo = 0; this.comboMult = 1;
+    if (this.mole) { this.timeLeft = Math.max(0, this.timeLeft - this.level.hitPenalty); const r0 = this.ramoScreen(); this.burst(r0.x, r0.y - this.ramoH * 1.4, 'text', 1, { text: `-${this.level.hitPenalty} s`, color: '#ff6b6b', size: 24 }); }
     sfx.hit();
     this.face({ surprise: 1 }, 0.8);
-    this.closeupShow('grimace', pick(MSG_HIT));
+    this.closeupShow('grimace', pick(this.mole ? MSG_HIT_M : MSG_HIT));
     const r = this.ramoScreen();
     this.burst(r.x, r.y - this.ramoH * 0.5, 'dot', 20, { color: e.type === 'cow' ? '#fff' : '#b6733a' });
     this.burst(r.x, r.y - this.ramoH * 1.2, 'text', 1, { text: '★ ★ ★', color: '#ffd84a', size: 22 });
     if (this.lives <= 0) {
-      this.state = 'over';
+      this.result = 'crash'; this.state = 'over';
       sfx.gameover();
-      setTimeout(() => this.ui.gameOver({ score: this.score, distance: Math.floor(this.travel * GAME.metersPerUnit), beers: this.beers, mode: this.mode, duration: Math.round(this.elapsed) }), 900);
+      setTimeout(() => this.endReport(), 900);
     }
     this.emitHud();
   }
@@ -383,7 +561,8 @@ export class Game {
     else if (b.heat > 0) bonus = `🔥 Coup de chaud ${b.heat.toFixed(0)}s`;
     if (b.double > 0) bonus += (bonus ? ' · ' : '') + `🍺 x2 ${b.double.toFixed(0)}s`;
     if (b.crazy > 0) bonus += (bonus ? ' · ' : '') + '🪩 Nuit de folie';
-    this.ui.hud({ score: this.score, lives: this.lives, distance: Math.floor(this.travel * GAME.metersPerUnit), bonus });
+    this.ui.hud({ score: this.score, lives: this.lives, distance: Math.floor(this.travel * GAME.metersPerUnit), bonus,
+      combo: this.comboMult, mole: this.mole, timeLeft: this.timeLeft, progress: this.progress });
   }
 
   // ------------------------------------------------ rendu
@@ -392,15 +571,22 @@ export class Game {
     c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     c.save();
     if (this.shake > 0) c.translate(rand(-6, 6) * this.shake * 3, rand(-6, 6) * this.shake * 3);
+    // animation de départ : la caméra part d'un gros plan sur Ramo puis recule
+    const zoom = this.state === 'intro' ? 1 + 0.85 * Math.pow(1 - Math.min(1, this.introT / 2.3), 3) : 1;
+    if (zoom > 1.001) { const r = this.ramoScreen(); c.translate(r.x, r.y - this.ramoH * 0.55); c.scale(zoom, zoom); c.translate(-r.x, -(r.y - this.ramoH * 0.55)); }
     S.drawSky(c, W, H, P.hor, adult, t);
-    S.drawMountains(c, W, H, P.hor, adult);
-    S.drawRoad(c, P, W, H, adult, this.travel);
+    if (this.mole) { M.drawPanorama(c, W, H, P.hor, adult, this.progress); M.drawPiste(c, P, W, H, adult, this.travel); }
+    else { S.drawMountains(c, W, H, P.hor, adult); S.drawRoad(c, P, W, H, adult, this.travel); }
     if (adult) this.discoBeams(c);
     // décor du plus loin au plus près
     const key = (d) => (d.kind === 'building' || d.kind === 'townhall' || d.kind === 'castle' ? d.z + d.len : d.z);
     const dec = [...this.decor].sort((a, b) => key(b) - key(a));
     for (const d of dec) {
-      if (d.kind === 'building') G.drawFacade(c, P, d, adult, t);
+      if (d.kind === 'sapinD') M.drawSapinDecor(c, P, d, adult);
+      else if (d.kind === 'chalet') M.drawChalet(c, P, d, adult, t);
+      else if (d.kind === 'pylon') M.drawPylon(c, P, d, adult, t);
+      else if (d.kind === 'arch') M.drawArch(c, P, d, adult, t);
+      else if (d.kind === 'building') G.drawFacade(c, P, d, adult, t);
       else if (d.kind === 'townhall') { G.drawFacade(c, P, d, adult, t); S.drawTownHall(c, P, d, adult); }
       else if (d.kind === 'tree') G.drawTree(c, P, d, adult);
       else if (d.kind === 'garland') G.drawGarland(c, P, d, adult, t);
@@ -419,15 +605,22 @@ export class Game {
     let ramoDrawn = false;
     for (const e of ents) {
       if (!ramoDrawn && e.z < 0) { this.drawRamo(c); ramoDrawn = true; }
-      if (e.kind === 'obs') D.drawObstacle(c, P, e, adult, t);
-      else D.drawPickup(c, P, e, t, this.ramoH);
+      if (e.kind === 'obs') { if (this.mole && e.type !== 'cow') M.drawObstacleM(c, P, e, adult, t); else D.drawObstacle(c, P, e, adult, t); }
+      else if (e.kind === 'gate') M.drawGate(c, P, e, adult, t);
+      else if (e.type === 'meringue') {
+        const s2 = P.s(e.z), lift = e.high ? this.ramoH * 0.55 * s2 : 0, u = P.unit * s2;
+        M.drawMeringue(c, P.x(e.lane, e.z), P.y(e.z) - lift - u * (0.3 + 0.06 * Math.sin(t * 5 + e.z)), u * 1.3);
+      } else D.drawPickup(c, P, e, t, this.ramoH);
     }
     if (!ramoDrawn) this.drawRamo(c);
     // blonde à l'écran (bonus charme)
     if (this.blonde) this.drawBlondeEvent(c);
     if (this.state === 'love') this.drawLove(c);
+    if (this.mole) this.drawSnowfall(c);
     D.drawParticles(c, this.parts);
     if (this.closeup && this.state !== 'love') this.drawCloseup(c);
+    if (this.state === 'intro') this.drawCountdown(c);
+    if (this.state === 'win') this.drawWin(c);
     if (adult) { // vignette rose
       const g = c.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.75);
       g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(120,0,90,0.35)');
@@ -435,6 +628,43 @@ export class Game {
     }
     if (this.buffs.heat > 0) { c.fillStyle = `rgba(255,80,0,${0.08 + 0.05 * Math.sin(t * 10)})`; c.fillRect(0, 0, W, H); }
     c.restore();
+  }
+
+  drawCountdown(c) {
+    const W = this.W, H = this.H, n = Math.min(3, Math.floor(this.introT / 0.8)), f = (this.introT % 0.8) / 0.8;
+    const txt = n < 3 ? String(3 - n) : (this.mole ? 'GO !' : 'SANTÉ !');
+    const sc = n < 3 ? 1.6 - 0.6 * Math.min(1, f * 3) : 1 + f * 0.4;
+    const alpha = n < 3 ? 1 - Math.max(0, f - 0.75) * 4 : Math.max(0, 1 - f * 2.5);
+    c.save(); c.globalAlpha = Math.max(0, alpha);
+    c.translate(W / 2, H * 0.36); c.scale(sc, sc); c.rotate(n < 3 ? (1 - Math.min(1, f * 3)) * 0.3 : 0);
+    c.font = `${Math.min(W * 0.3, 150)}px "Luckiest Guy", Nunito, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.lineWidth = 12; c.strokeStyle = this.adult ? '#3a0040' : '#6b2a00'; c.strokeText(txt, 0, 0);
+    c.fillStyle = n < 3 ? (this.adult ? '#ff4fd8' : '#ffcf2e') : '#7CFF6B'; c.fillText(txt, 0, 0);
+    c.restore();
+    if (this.introT < 0.5) { // titre du parcours
+      c.save(); c.globalAlpha = 1 - this.introT * 2; c.font = '900 20px Nunito, sans-serif'; c.textAlign = 'center'; c.fillStyle = '#fff';
+      c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = 4; c.strokeText(this.level.name, W / 2, H * 0.22); c.fillText(this.level.name, W / 2, H * 0.22); c.restore();
+    }
+    c.save(); c.globalAlpha = 0.7; c.font = '800 13px Nunito, sans-serif'; c.textAlign = 'center'; c.fillStyle = '#fff'; c.fillText('Touche pour passer', W / 2, H * 0.96); c.restore();
+  }
+
+  drawWin(c) {
+    const W = this.W, H = this.H, k = Math.min(1, this.winT * 2);
+    c.save(); c.globalAlpha = k; c.translate(W / 2, H * 0.3); c.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k); c.rotate(Math.sin(this.winT * 4) * 0.04);
+    c.font = `${Math.min(W * 0.13, 64)}px "Luckiest Guy", Nunito, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.lineWidth = 10; c.strokeStyle = '#6b2a00'; c.strokeText('ARRIVÉ !', 0, 0); c.fillStyle = '#ffcf2e'; c.fillText('ARRIVÉ !', 0, 0);
+    c.font = '900 18px Nunito, sans-serif'; c.lineWidth = 5; c.strokeStyle = 'rgba(0,0,0,0.5)';
+    const t2 = `Chrono restant : ${this.timeLeft.toFixed(1)} s`; c.strokeText(t2, 0, 50); c.fillStyle = '#fff'; c.fillText(t2, 0, 50);
+    c.restore();
+  }
+
+  drawSnowfall(c) {
+    const W = this.W, H = this.H, t = this.t;
+    c.fillStyle = this.adult ? 'rgba(255,220,255,0.7)' : 'rgba(255,255,255,0.85)';
+    for (let i = 0; i < 28; i++) {
+      const x = ((i * 73.1 + Math.sin(t + i) * 20 + t * 12) % W + W) % W, y = ((i * 131.7 + t * (60 + (i % 5) * 25)) % H);
+      c.beginPath(); c.arc(x, y, 1 + (i % 3), 0, 7); c.fill();
+    }
   }
 
   discoBeams(c) {
@@ -463,9 +693,11 @@ export class Game {
     let h = this.ramoH, w = h * (528 / 620);
     let sy = 1, sx = 1;
     if (sliding) { sy = 0.58; sx = 1.12; }
-    const run = this.state === 'play' && p.jumpH === 0 && !sliding;
+    const run = this.state === 'play' && p.jumpH === 0 && !sliding && !this.mole;
     const bob = run ? Math.abs(Math.sin(t * 15)) * h * 0.03 : 0;
-    const tilt = (p.lane - p.x) * -0.35 + (p.hitAnim > 0 ? Math.sin(p.hitAnim * 30) * 0.3 : 0) + (this.state === 'over' ? 1.2 : 0);
+    const dance = this.state === 'win' ? Math.sin(this.winT * 10) * 0.25 : 0;
+    const tilt = (p.lane - p.x) * (this.mole ? -0.6 : -0.35) + (p.hitAnim > 0 ? Math.sin(p.hitAnim * 30) * 0.3 : 0) + (this.state === 'over' ? 1.2 : 0) + dance
+      + (this.mole && this.state === 'play' ? Math.sin(t * 3) * 0.03 : 0);
     const feetY = base - jumpPx - bob;
     c.save();
     c.translate(x, feetY);
@@ -475,6 +707,7 @@ export class Game {
     const wag = Math.sin(t * (this.p.wag > 0 || this.adult ? 18 : 9)) * (this.p.wag > 0 ? 0.6 : 0.25);
     if (this.p.wag > 0) this.p.wag -= 1 / 60;
     D.drawTail(c, w * 0.22, -h * 0.12, h * 0.75, 0.6 + wag);
+    if (this.mole) { M.drawSled(c, w, h, t, this.adult); c.translate(0, -h * 0.05); }
     // pieds animés
     c.fillStyle = '#3b2212';
     const step = run ? Math.sin(t * 15) : 0;

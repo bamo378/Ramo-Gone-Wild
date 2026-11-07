@@ -20,6 +20,7 @@ export const PICKUPS = {
   big:    { points: 50,  label: '+50' },
   golden: { points: 100, label: '+100', effect: 'invincible', duration: 5 },
   chope:  { points: 0,   label: 'x2 !', effect: 'double', duration: 8 },
+  meringue: { points: 40, label: '+40' },          // Moléson : meringue double-crème (en plus des bières)
   // --- mode After Dark ---
   heat:   { points: 30,  label: 'COUP DE CHAUD', effect: 'heat', duration: 5, adult: true },
   charm:  { points: 250, label: 'CHARME !', effect: 'charm', adult: true },
@@ -34,6 +35,12 @@ export const OBSTACLES = {
   barrier: { need: 'slide', w: 0.95 },
   cow:     { need: 'block', w: 0.9 },
   cart:    { need: 'block', w: 0.9 },
+  // Descente du Moléson
+  rock:    { need: 'jump',  w: 0.7 },
+  fondue:  { need: 'jump',  w: 0.66 },
+  chair:   { need: 'slide', w: 0.95 },
+  sapin:   { need: 'block', w: 0.9 },
+  snowman: { need: 'block', w: 0.8 },
 };
 
 export const LEVELS = [
@@ -44,8 +51,24 @@ export const LEVELS = [
             'Chez Ramo', 'Crèmerie Double', 'Taverne des Armaillis', 'Cave à Bière'],
     adultShops: ['Club 69', 'Le Castor Rose', 'Bar à Câlins', 'Love Hôtel Moléson',
                  'Cabaret Fondu', 'Le Petit Coquin', 'Néon Gruyère', 'After Chalet'],
+    obstacles: { jump: ['barrel', 'crate'], slide: ['barrier'], block: ['cow', 'cart'] },
+    speed: { start: 13, max: 46, ramp: 0.42 },
+    board: (mode) => mode, // classements « classic » / « adult » (historique)
+  },
+  {
+    id: 'moleson',
+    name: 'LA DESCENTE DU MOLÉSON',
+    obstacles: { jump: ['rock', 'fondue'], slide: ['chair'], block: ['sapin', 'snowman', 'cow'] },
+    speed: { start: 17, max: 50, ramp: 0.5 },
+    finish: 2200,        // mètres jusqu'à Gruyères
+    startTime: 50,       // secondes au chrono
+    gateBonus: 3,        // + secondes par porte de slalom
+    hitPenalty: 3,       // - secondes par choc
+    stations: [{ at: 700, label: 'PLAN-FRANCEY', bonus: 8 }, { at: 1450, label: 'MOLÉSON-SUR-GRUYÈRES', bonus: 8 }],
+    board: (mode) => `moleson-${mode}`,
   },
 ];
+export const levelById = (id) => LEVELS.find((l) => l.id === id) || LEVELS[0];
 
 export const MSG_START = [
   'Le castor est lâché dans Bulle !',
@@ -111,3 +134,16 @@ export const MSG_GAMEOVER_ADULT = [
 ];
 
 export const SHARE_TEXT = '🦫🍺 RAMO GONE WILD ! Le castor est lâché dans Bulle ! Tu crois pouvoir battre mon score ?';
+
+export const MSG_MOLESON = [
+  'Le castor dévale le Moléson !',
+  'Plus vite que la télécabine !',
+  'Attention aux armaillis !',
+  'Ça glisse, ça glisse !',
+  'Une bière à chaque virage !',
+  'Ramo, champion de luge !',
+  'Même les marmottes applaudissent !',
+];
+export const MSG_GATE = ['Porte ! +3 s', 'Joli slalom !', 'Pile dans la porte !', 'Quel pilote !'];
+export const MSG_COMBO = ['COMBO x2 !', 'COMBO x3 !', 'COMBO x4 !', 'COMBO x5 — INARRÊTABLE !'];
+export const MSG_HIT_M = ['Gamelle dans la poudreuse !', 'Aïe, le sapin !', 'Ramo a pris un râteau… de neige !', 'Plein de neige dans la fourrure !', 'La luge a vu double !'];

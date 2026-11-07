@@ -68,7 +68,8 @@ body.adult .card .btn.ghost { background: rgba(255,255,255,.08); color: #ffb3ee;
 .toast { position: absolute; left: 50%; top: 27vh; transform: translateX(-50%); width: max-content; max-width: 88vw; text-align: center;
   font-weight: 900; font-size: 21px; line-height: 1.2; padding: 10px 18px; border-radius: 18px; background: rgba(255,255,255,.95); color: #7a1f12; opacity: 0;
   box-shadow: 0 6px 20px rgba(0,0,0,.35); transition: opacity .25s, transform .25s; }
-.toast.show { opacity: 1; transform: translateX(-50%) scale(1); animation: pop .35s; }
+.toast.show { opacity: 1; transform: translateX(-50%) scale(1); animation: toastPop .35s; }
+@keyframes toastPop { 0% { transform: translateX(-50%) scale(.7); opacity: 0 } 70% { transform: translateX(-50%) scale(1.05) } 100% { transform: translateX(-50%) scale(1); opacity: 1 } }
 
 /* Cartes */
 .card { width: 100%; max-width: 380px; background: var(--card); color: var(--ink); border-radius: 26px; padding: 22px 18px; display: flex; flex-direction: column; gap: 10px;
@@ -144,3 +145,32 @@ body.adult .board .row { background: #2d0f47; }
 body.adult .board .row.me { background: #4a1660; outline-color: #ff4fd8; }
 body.adult .board b { color: #ff4fd8; }
 .rank-line { font-size: 15px; }
+
+/* Choix du parcours */
+.levels-card { gap: 12px; }
+.level-list { display: flex; flex-direction: column; gap: 12px; }
+.level-card { display: flex; gap: 12px; align-items: center; text-align: left; border: 0; border-radius: 20px; padding: 14px; cursor: pointer; color: #fff;
+  font-family: Nunito, sans-serif; box-shadow: 0 6px 0 rgba(0,0,0,.25), 0 10px 20px rgba(0,0,0,.25); transition: transform .1s; animation: pop .4s ease both; }
+.level-card:nth-child(2) { animation-delay: .08s; }
+.level-card:active { transform: translateY(4px) scale(.99); }
+.lv-bulle { background: linear-gradient(135deg, #ff9a3c, #e2462a 60%, #b8322a); }
+.lv-moleson { background: linear-gradient(135deg, #6fd0ff, #2f7fd6 55%, #1b4f9e); }
+.lv-emo { font-size: 46px; flex: none; width: 62px; text-align: center; filter: drop-shadow(0 3px 2px rgba(0,0,0,.3)); }
+.lv-txt { display: flex; flex-direction: column; gap: 3px; }
+.lv-txt b { font-family: "Luckiest Guy", Nunito, sans-serif; font-weight: 400; font-size: 21px; letter-spacing: .5px; line-height: 1; text-shadow: 0 2px 0 rgba(0,0,0,.25); }
+.lv-txt small { font-weight: 800; font-size: 13px; opacity: .95; }
+.lv-txt em { font-style: normal; font-weight: 900; font-size: 11px; letter-spacing: 1px; background: rgba(0,0,0,.25); border-radius: 10px; padding: 2px 8px; align-self: flex-start; }
+body.adult .lv-bulle { background: linear-gradient(135deg, #ff4fd8, #9b1fa8); }
+body.adult .lv-moleson { background: linear-gradient(135deg, #7a3cff, #2a0c6b); }
+
+/* HUD : chrono, combo, progression */
+.pill.time { color: #fff; background: rgba(20,60,120,.7); font-size: 16px; font-variant-numeric: tabular-nums; }
+.pill.time.danger { background: rgba(200,20,30,.85); animation: pulse .5s infinite; }
+.pill.combo { color: #3a1800; background: linear-gradient(180deg, #ffe76a, #ffb21f); font-size: 15px; }
+.pill.combo.pop { animation: pop .35s; }
+.prog { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.pr-bar { position: relative; flex: 1; height: 10px; border-radius: 6px; background: rgba(0,0,0,.35); }
+.pr-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: linear-gradient(90deg, #7CFF6B, #ffd84a); width: 0; }
+.pr-ramo { position: absolute; top: 50%; transform: translate(-50%, -55%); font-size: 18px; left: 0; }
+.pr-a, .pr-b { font-size: 18px; }
+.ctab { font-size: 14px; }

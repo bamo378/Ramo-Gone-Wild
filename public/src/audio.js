@@ -54,6 +54,10 @@ export const sfx = {
   boing()  { tone(180, 0.35, { type: 'sine', vol: 0.4, slide: 400 }); },
   wolf()   { tone(900, 0.25, { type: 'sine', vol: 0.25, slide: 900 }); tone(1400, 0.45, { type: 'sine', vol: 0.25, slide: -900, delay: 0.3 }); },
   heat()   { tone(200, 0.5, { type: 'sawtooth', slide: 1200, vol: 0.18 }); noise(0.5, { vol: 0.15, freq: 2000 }); },
+  beep(go) { if (go) { tone(880, 0.35, { type: 'square', vol: 0.22 }); tone(1320, 0.4, { type: 'triangle', vol: 0.2, delay: 0.05 }); } else tone(523, 0.18, { type: 'square', vol: 0.2 }); },
+  gate()   { tone(1046, 0.08, { type: 'triangle', vol: 0.25 }); tone(1568, 0.14, { type: 'triangle', vol: 0.22, delay: 0.06 }); },
+  tick()   { tone(1200, 0.05, { type: 'square', vol: 0.12 }); },
+  combo(m) { [0, 1, 2].forEach((i) => tone(440 * Math.pow(1.26, m + i), 0.12, { type: 'square', vol: 0.15, delay: i * 0.07 })); },
   squeak() { tone(1200 + Math.random() * 600, 0.08, { type: 'square', vol: 0.12, slide: 300 }); },
 };
 

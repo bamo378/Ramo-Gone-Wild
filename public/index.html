@@ -67,8 +67,11 @@
     </div>
     <div class="hud-sub">
       <span class="pill small" id="hDist">0 m</span>
+      <span class="pill small time hidden" id="hTime"></span>
+      <span class="pill small combo hidden" id="hCombo"></span>
       <span class="pill small bonus hidden" id="hBonus"></span>
     </div>
+    <div class="prog hidden" id="hProg"><span class="pr-a">🏔️</span><div class="pr-bar"><div class="pr-fill" id="hProgFill"></div><span class="pr-ramo" id="hProgRamo">🦫</span></div><span class="pr-b">🏰</span></div>
     <div id="toast" class="toast"></div>
   </div>
 
@@ -94,7 +97,7 @@
       <div class="stats">
         <div><small>SCORE</small><b id="oScore">0</b></div>
         <div><small>RECORD</small><b id="oBest">0</b></div>
-        <div><small>DISTANCE</small><b id="oDist">0 m</b></div>
+        <div><small id="oDistLabel">DISTANCE</small><b id="oDist">0 m</b></div>
       </div>
       <p class="new-record hidden" id="oRecord">🎉 NOUVEAU RECORD ! 🎉</p>
       <p class="rank-line" id="oRank"></p>
@@ -125,6 +128,15 @@
     </div>
   </div>
 
+  <!-- Choix du parcours -->
+  <div id="levels" class="screen modal-screen">
+    <div class="card levels-card">
+      <h2>CHOISIS TON PARCOURS</h2>
+      <div id="levelList" class="level-list"></div>
+      <button class="btn ghost" id="btnLevelsBack">Retour</button>
+    </div>
+  </div>
+
   <!-- Mode d'emploi -->
   <div id="howto" class="screen modal-screen">
     <div class="card howto-card">
@@ -142,6 +154,8 @@
         <div><span>🍺</span>Bière +10 · grande +50</div>
         <div><span>⭐</span>Bière dorée : invincible</div>
         <div><span>🍻</span>Super chope : points ×2</div>
+        <div><span>🔥</span>Enchaîne sans te cogner : COMBO jusqu'à ×5</div>
+        <div><span>🚩</span>Moléson : passe les portes = +3 s au chrono</div>
         <div class="adult-only"><span>💋 🔥 🪩</span>Charme, coup de chaud, nuit de folie</div>
         <div class="adult-only"><span>❤️</span>Cœur LOVE : la Love Room !</div>
       </div>

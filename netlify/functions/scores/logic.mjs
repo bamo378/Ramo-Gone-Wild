@@ -2,7 +2,7 @@
 // Un enregistrement par joueur et par mode : clé "<mode>/<idJoueur>" → meilleur score.
 // Pas de compteur partagé : chaque joueur n'écrit que sa propre clé.
 
-export const MODES = ['classic', 'adult'];
+export const MODES = ['classic', 'adult', 'moleson-classic', 'moleson-adult'];
 
 // Corrections manuelles : record perdu à cause d'un ancien bug d'affichage.
 // Appliquées une seule fois si le score enregistré est plus bas.
@@ -27,8 +27,9 @@ export function cleanPseudo(p) {
 export function plausible({ score, distance, duration }) {
   if (![score, distance, duration].every((n) => Number.isFinite(n) && n >= 0)) return false;
   if (duration < 3 || duration > 3600) return false;
-  if (distance > 40 + duration * 35) return false;
-  if (score > 3000 + duration * 230) return false;
+  // combos (x5), super chope (x2) et bonus d'arrivée du Moléson inclus
+  if (distance > 40 + duration * 38) return false;
+  if (score > 15000 + duration * 700) return false;
   if (score < distance * 0.9) return false; // le score contient toujours la distance
   return true;
 }
