@@ -124,7 +124,7 @@ const ui = {
     $('bvTitle').textContent = r.closed ? 'LE CHALET FERME ! 😬' : r.stars >= 3 ? 'SOIRÉE DE FOLIE ! 🎉' : r.stars >= 1 ? 'BELLE JOURNÉE ! 🍻' : 'PAS ASSEZ… 😅';
     $('bvStars').innerHTML = [0, 1, 2].map((i) => `<span class="bstar ${i < r.stars ? 'on' : ''}" style="animation-delay:${0.2 + i * 0.25}s">★</span>`).join('');
     $('bvLines').innerHTML = [
-      ['🙋 Clients servis', r.served], ['💰 Pourboires', `${r.tips} CHF`], ['🍺 Pintes parfaites', r.perfect], ['🔥 Meilleur combo', `x${Math.max(1, r.bestCombo)}`], ['😤 Clients fâchés', r.angry],
+      ['🙋 Clients servis', r.served], ['💰 Pourboires', `${r.tips} CHF`], ['🔥 Meilleur combo', `x${Math.max(1, r.bestCombo)}`], ['😤 Clients fâchés', r.angry],
       ['🎯 Objectifs', r.targets.map((t, i) => `${'★'.repeat(i + 1)} ${t}`).join(' · ')],
     ].map(([a, b]) => `<div><span>${a}</span><b>${b}</b></div>`).join('');
     $('bvEarned').textContent = `${r.earned} CHF`; $('bvMoney').textContent = `${S.money} CHF`;

@@ -474,7 +474,7 @@ export function drawScene(c, W, H, top, counterY, adult, t, layer = 'all') {
       c.fillStyle = adult ? ['#ff4fd8', '#4fe3ff', '#ffd84a'][i % 3] : ['#111', '#fff', '#d52b1e'][i % 3];
       c.beginPath(); c.moveTo(x - sw2, y); c.lineTo(x + sw2, y); c.lineTo(x + wave, y + sw2 * 2.1); c.closePath(); c.fill(); }
   };
-  flags(top + H * 0.02, H * 0.05, 11);
+  flags(top - 2, H * 0.018, 11);
   // guirlande lumineuse
   const ly = counterY - H * 0.08;
   for (let i = 0; i < 14; i++) { const f = (i + 0.5) / 14, x = f * W, y = ly + Math.sin(f * Math.PI) * H * 0.025; const on = 0.6 + 0.4 * Math.sin(t * 4 + i * 1.7);
@@ -497,7 +497,7 @@ export function drawCounter(c, W, y, h, adult) {
 // Bulle de commande au-dessus d'un client
 export function drawBubble(c, x, y, order, frac, t, adult, maxW = 999) {
   const n = order.length, s = Math.max(14, Math.min(22, (maxW - 12) / n - 4)), pad = 6, w = n * (s + 4) + pad * 2 - 4, h = s + pad * 2 + 8;
-  const bx = x - w / 2, by = y - h;
+  const cw = c.canvas.width / (c.getTransform().a || 1), bx = Math.max(3, Math.min(cw - w - 3, x - w / 2)), by = y - h;
   c.fillStyle = 'rgba(255,255,255,0.96)'; rr(c, bx, by, w, h, 10); c.fill();
   c.beginPath(); c.moveTo(x - 6, by + h); c.lineTo(x, by + h + 7); c.lineTo(x + 6, by + h); c.fill();
   order.forEach((o, i) => {
