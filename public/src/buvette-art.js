@@ -338,6 +338,8 @@ export function clearCache() { CACHE.clear(); }
 // ---------------------------------------------------------------- produits
 export const ITEMS = {
   beer: { name: 'Bière', price: 5, emo: '🍺' },
+  buche: { name: 'Bûche', price: 8, emo: '🍺' },
+  cidre: { name: 'Cidre', price: 6, emo: '🍏' },
   cuchaule: { name: 'Cuchaule', price: 4, emo: '🍞' },
   sausage: { name: 'Saucisse', price: 7, emo: '🌭' },
   meringue: { name: 'Meringue', price: 6, emo: '🍮' },
@@ -353,7 +355,11 @@ export const ITEMS = {
 };
 export function drawItem(c, kind, x, y, s, o = {}) {
   c.save(); c.translate(x, y); const u = s / 20;
-  if (kind === 'beer') {
+  if (kind === 'buche') {
+    c.restore(); drawItem(c, 'beer', x, y + s * 0.04, s * 1.22, o); c.save(); c.translate(x, y);
+    c.fillStyle = '#7a2a18'; rr(c, -5 * u, 1 * u, 10 * u, 5 * u, 1.5 * u); c.fill();
+    c.fillStyle = '#fff'; c.font = `900 ${3.6 * u}px Nunito, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('5 dl', 0, 3.6 * u);
+  } else if (kind === 'beer') {
     const f = o.fill ?? 1; // niveau de remplissage 0..1.15
     c.fillStyle = 'rgba(255,255,255,0.28)'; c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = 1.2 * u;
     c.beginPath(); c.moveTo(-6.5 * u, -9 * u); c.lineTo(-5.5 * u, 9 * u); c.lineTo(5.5 * u, 9 * u); c.lineTo(6.5 * u, -9 * u); c.closePath(); c.fill();
@@ -410,10 +416,10 @@ export function drawItem(c, kind, x, y, s, o = {}) {
     c.beginPath(); c.moveTo(0, 2 * u); c.lineTo(0, 8 * u); c.stroke();
     c.beginPath(); c.ellipse(0, 9 * u, 4.5 * u, 1.2 * u, 0, 0, 7); c.stroke();
     if (kind === 'spritz') { c.fillStyle = '#ff8a1a'; c.beginPath(); c.arc(5.5 * u, -9.5 * u, 3 * u, 0, 7); c.fill(); c.fillStyle = '#ffd08a'; c.beginPath(); c.arc(5.5 * u, -9.5 * u, 2.1 * u, 0, 7); c.fill(); c.strokeStyle = '#7ac74f'; c.lineWidth = 1.2 * u; c.beginPath(); c.moveTo(-1 * u, -3 * u); c.lineTo(-3.5 * u, -14 * u); c.stroke(); }
-  } else if (kind === 'coca' || kind === 'suze' || kind === 'suzecoca' || kind === 'rivella' || kind === 'mojito') {
-    const tall = kind === 'mojito' || kind === 'coca' || kind === 'suzecoca' || kind === 'rivella';
+  } else if (kind === 'coca' || kind === 'suze' || kind === 'suzecoca' || kind === 'rivella' || kind === 'mojito' || kind === 'cidre') {
+    const tall = kind === 'mojito' || kind === 'coca' || kind === 'suzecoca' || kind === 'rivella' || kind === 'cidre';
     const top = tall ? -10 : -5, bot = 9, wt = tall ? 6 : 7, wb = tall ? 5 : 5.5;
-    const liq = { coca: ['#5a1e10', '#2a0c06'], suze: ['#ffe35a', '#e8b820'], suzecoca: ['#8a5a1a', '#4a2a0c'], rivella: ['#f2d98a', '#d9b040'], mojito: ['#dff7d0', '#a8e08a'] }[kind];
+    const liq = { coca: ['#5a1e10', '#2a0c06'], suze: ['#ffe35a', '#e8b820'], suzecoca: ['#8a5a1a', '#4a2a0c'], rivella: ['#f2d98a', '#d9b040'], cidre: ['#f9e28a', '#e0a030'], mojito: ['#dff7d0', '#a8e08a'] }[kind];
     const glass = () => { c.beginPath(); c.moveTo(-wt * u, top * u); c.lineTo(-wb * u, bot * u); c.lineTo(wb * u, bot * u); c.lineTo(wt * u, top * u); c.closePath(); };
     c.fillStyle = 'rgba(255,255,255,0.25)'; glass(); c.fill();
     c.save(); glass(); c.clip();
@@ -429,8 +435,9 @@ export function drawItem(c, kind, x, y, s, o = {}) {
     // décorations
     if (kind === 'mojito') { c.fillStyle = '#8fd14f'; c.beginPath(); c.arc(wt * u, top * u + 1 * u, 3 * u, 0, 7); c.fill(); c.fillStyle = '#d8f5a8'; c.beginPath(); c.arc(wt * u, top * u + 1 * u, 2.2 * u, 0, 7); c.fill(); c.fillStyle = '#2e9a3a'; c.beginPath(); c.ellipse(-2 * u, (top - 1.5) * u, 2.4 * u, 1.1 * u, -0.5, 0, 7); c.ellipse(1 * u, (top - 2) * u, 2.4 * u, 1.1 * u, 0.5, 0, 7); c.fill(); }
     if (kind === 'coca' || kind === 'suzecoca') { c.fillStyle = '#f2e14a'; c.beginPath(); c.arc(-wt * u, top * u + 1.5 * u, 2.6 * u, 0, 7); c.fill(); c.fillStyle = '#fff6b0'; c.beginPath(); c.arc(-wt * u, top * u + 1.5 * u, 1.8 * u, 0, 7); c.fill(); }
+    if (kind === 'cidre') { c.fillStyle = '#5ab83a'; c.beginPath(); c.arc(wt * u, (top + 1) * u, 3.2 * u, 0, 7); c.fill(); c.fillStyle = '#d93a2a'; c.beginPath(); c.arc(wt * u + 0.8 * u, (top + 1.5) * u, 1.6 * u, 0, 7); c.fill(); c.strokeStyle = '#5a3a1a'; c.lineWidth = 0.6 * u; c.beginPath(); c.moveTo(wt * u, (top - 2) * u); c.lineTo(wt * u + 0.6 * u, (top - 3.5) * u); c.stroke(); }
     if (kind === 'suzecoca') { c.fillStyle = 'rgba(255,220,60,0.55)'; c.beginPath(); c.ellipse(0, (top + 3) * u, wt * 0.9 * u, 1.3 * u, 0, 0, 7); c.fill(); }
-    if (tall) { c.strokeStyle = kind === 'coca' ? '#e8283a' : kind === 'suzecoca' ? '#f2c21a' : kind === 'rivella' ? '#d52b1e' : '#ff6b8a'; c.lineWidth = 1.2 * u; c.beginPath(); c.moveTo(1 * u, 6 * u); c.lineTo(4 * u, (top - 4) * u); c.stroke(); }
+    if (tall && kind !== 'cidre') { c.strokeStyle = kind === 'coca' ? '#e8283a' : kind === 'suzecoca' ? '#f2c21a' : kind === 'rivella' ? '#d52b1e' : '#ff6b8a'; c.lineWidth = 1.2 * u; c.beginPath(); c.moveTo(1 * u, 6 * u); c.lineTo(4 * u, (top - 4) * u); c.stroke(); }
     if (kind === 'suze') { c.fillStyle = '#ffd84a'; c.font = `900 ${4 * u}px Nunito, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; }
   } else if (kind === 'kirsch') {
     c.fillStyle = 'rgba(255,255,255,0.3)'; c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = 1 * u;

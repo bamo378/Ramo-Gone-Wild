@@ -11,7 +11,7 @@ import { roundRect as rr } from './draw.js';
 
 export const DAY_LEN = 80;          // secondes par journée
 export const REP_MAX = 3;           // 3 cœurs : 3 clients fâchés et le chalet ferme
-export const UNLOCK = { beer: 1, vinblanc: 1, suzecoca: 1, coca: 2, suze: 3, cuchaule: 3, rivella: 4, sausage: 4, spritz: 5, mojito: 6, kirsch: 7, fondue: 8 };
+export const UNLOCK = { beer: 1, vinblanc: 1, suzecoca: 1, coca: 2, buche: 2, suze: 3, cuchaule: 3, rivella: 4, sausage: 4, spritz: 5, cidre: 5, mojito: 6, kirsch: 7, fondue: 8 };
 
 // Améliorations (boutique) : niveaux et prix
 export const UPGRADES = [
@@ -84,7 +84,7 @@ export class Buvette {
     const n = this.seats; this.spotW = W / n;
     this.S = Math.min(this.spotW * 1.12, H * 0.2, 165);
     // zone de Ramo (il court vers les stations)
-    this.ramoY = this.counterY + this.counterH; this.ramoH = Math.round(H * (this.menu.length > 6 ? 0.15 : 0.2));
+    this.ramoY = this.counterY + this.counterH; this.ramoH = Math.round(H * (this.menu.length > 12 ? 0.12 : this.menu.length > 6 ? 0.15 : 0.2));
     const sy = this.ramoY + this.ramoH, ids = this.menu.map((k) => (k === 'sausage' ? 'grill' : k));
     const cols = ids.length === 1 ? 1 : ids.length <= 4 ? 2 : ids.length <= 9 ? 3 : 4, rows = Math.ceil(ids.length / cols), cw = W / cols;
     const sh = Math.min((H - sy - 8) / Math.max(2, rows), 150);
@@ -119,8 +119,9 @@ export class Buvette {
     const order = [];
     for (let i = 0; i < n; i++) {
       let k;
-      if (reg && reg.beers) k = 'beer';
-      else if (this.event === 'match' && Math.random() < 0.6) k = 'beer';
+      const bier = () => (this.menu.includes('buche') && Math.random() < 0.4 ? 'buche' : 'beer');
+      if (reg && reg.beers) k = bier();
+      else if (this.event === 'match' && Math.random() < 0.6) k = bier();
       else if (this.event === 'desalpe' && Math.random() < 0.5) k = pick(this.menu.filter((m) => m === 'sausage' || m === 'fondue' || m === 'beer'));
       else k = Math.random() < 0.38 ? 'beer' : pick(this.menu);
       order.push({ kind: k, done: false });
@@ -173,7 +174,7 @@ export class Buvette {
     if ((this.cool[id] || 0) > 0) return;
     const c = this.needy(kind);
     if (!c) { this.penalty(cx, cy, 2, 'Personne n\'en veut ! Gaspillé'); return; }
-    this.cool[id] = kind === 'beer' ? this.beerTime : 0.25;
+    this.cool[id] = kind === 'beer' ? this.beerTime : kind === 'buche' ? this.beerTime * 1.5 : 0.25;
     this.deliver(c, kind, cx, cell.y);
   }
   // Pénalité : on perd des sous et le combo
@@ -417,7 +418,7 @@ export class Buvette {
       if (want && this.tut >= 0 && this.tut < 4 && !this.tutHand) { this.tutHand = 1; const hb = Math.abs(Math.sin(t * 5)) * 14; c.font = '44px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('👆', cx + w * 0.18, y + h * 0.62 + hb); }
       c.fillStyle = adult ? '#ffd1f4' : '#6a3a18'; c.font = `900 ${Math.max(12, Math.round(Math.min(w, 140) * 0.12))}px Nunito, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
       const pr = `${Math.round(ITEMS[kind].price * this.priceMult)}.-`;
-      if (w < 120) { c.font = `900 ${w < 90 ? 10 : 11}px Nunito, sans-serif`; c.fillText(ITEMS[kind].name.toUpperCase(), cx, y + h - 11); c.font = '800 10px Nunito, sans-serif'; c.textAlign = 'left'; c.fillText(pr, x + 6, y + 11); }
+      if (w < 140) { c.font = `900 ${w < 90 ? 10 : w < 120 ? 11 : 13}px Nunito, sans-serif`; c.fillText(ITEMS[kind].name.toUpperCase(), cx, y + h - 11); c.font = '800 10px Nunito, sans-serif'; c.textAlign = 'left'; c.fillText(pr, x + 6, y + 11); }
       else c.fillText(`${ITEMS[kind].name.toUpperCase()}  ·  ${pr}`, cx, y + h - 14);
     }
   }
@@ -445,6 +446,7 @@ export class Buvette {
     }
     const cool = this.cool[id] || 0;
     if (id === 'beer' && cool > 0) { drawItem(c, 'beer', cx, cy, s * 1.05, { fill: 1 - cool / this.beerTime, t }); return; }
+    if (id === 'buche' && cool > 0) { drawItem(c, 'buche', cx, cy, s * 0.95, { fill: 1 - cool / (this.beerTime * 1.5), t }); return; }
     drawItem(c, id, cx, cy, s * (cool > 0 ? 0.9 : 1.05), { t, fill: 1 });
   }
   drawRain(c, t) {
