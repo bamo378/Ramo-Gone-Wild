@@ -346,7 +346,10 @@ export const ITEMS = {
   coca: { name: 'Coca', price: 4, emo: '🥤' },
   suze: { name: 'Suze', price: 6, emo: '🍸' },
   mojito: { name: 'Mojito', price: 9, emo: '🍹' },
-  suzelait: { name: 'Suze lait', price: 6, emo: '🥛' },
+  suzecoca: { name: 'Suze-Coca', price: 7, emo: '🥃' },
+  vinblanc: { name: 'Vin blanc', price: 5, emo: '🥂' },
+  rivella: { name: 'Rivella', price: 4, emo: '🧃' },
+  spritz: { name: 'Spritz', price: 8, emo: '🍹' },
 };
 export function drawItem(c, kind, x, y, s, o = {}) {
   c.save(); c.translate(x, y); const u = s / 20;
@@ -392,10 +395,25 @@ export function drawItem(c, kind, x, y, s, o = {}) {
     c.strokeStyle = '#9aa0a8'; c.lineWidth = 0.9 * u; c.beginPath(); c.moveTo(3 * u, -1 * u); c.lineTo(9 * u, -11 * u); c.stroke();
     c.fillStyle = '#f0c070'; c.fillRect(1.6 * u, -3 * u, 3 * u, 3 * u);
     c.strokeStyle = 'rgba(255,255,255,0.5)'; c.lineWidth = 0.8 * u; for (let i = 0; i < 2; i++) { const t = ((o.t || 0) * 0.8 + i * 0.5) % 1; c.globalAlpha = 1 - t; c.beginPath(); c.moveTo(-3 * u + i * 4 * u, -4 * u - t * 8 * u); c.quadraticCurveTo(-1 * u + i * 4 * u, -6 * u - t * 8 * u, -3 * u + i * 4 * u, -9 * u - t * 8 * u); c.stroke(); } c.globalAlpha = 1;
-  } else if (kind === 'coca' || kind === 'suze' || kind === 'suzelait' || kind === 'mojito') {
-    const tall = kind === 'mojito' || kind === 'coca';
+  } else if (kind === 'vinblanc' || kind === 'spritz') {
+    // verre à pied
+    const bowl = () => { c.beginPath(); c.moveTo(-6 * u, -10 * u); c.quadraticCurveTo(-6.5 * u, 1 * u, 0, 2 * u); c.quadraticCurveTo(6.5 * u, 1 * u, 6 * u, -10 * u); c.closePath(); };
+    c.fillStyle = 'rgba(255,255,255,0.25)'; bowl(); c.fill();
+    c.save(); bowl(); c.clip();
+    const lg = c.createLinearGradient(0, -6 * u, 0, 2 * u);
+    if (kind === 'vinblanc') { lg.addColorStop(0, '#fbf1a8'); lg.addColorStop(1, '#e8d16a'); } else { lg.addColorStop(0, '#ffa040'); lg.addColorStop(1, '#e8541a'); }
+    c.fillStyle = lg; c.fillRect(-8 * u, (kind === 'spritz' ? -7 : -5) * u, 16 * u, 10 * u);
+    c.fillStyle = 'rgba(255,255,255,0.6)'; for (let i = 0; i < 3; i++) { c.beginPath(); c.arc((-2 + i * 2) * u, (0 - ((o.t || 0) * 5 + i * 2) % 6) * u, 0.4 * u, 0, 7); c.fill(); }
+    if (kind === 'spritz') { c.fillStyle = 'rgba(255,255,255,0.55)'; rr(c, -3.5 * u, -6 * u, 3 * u, 3 * u, 0.6 * u); c.fill(); rr(c, 0.8 * u, -5 * u, 3 * u, 3 * u, 0.6 * u); c.fill(); }
+    c.restore();
+    c.strokeStyle = 'rgba(255,255,255,0.9)'; c.lineWidth = 1 * u; bowl(); c.stroke();
+    c.beginPath(); c.moveTo(0, 2 * u); c.lineTo(0, 8 * u); c.stroke();
+    c.beginPath(); c.ellipse(0, 9 * u, 4.5 * u, 1.2 * u, 0, 0, 7); c.stroke();
+    if (kind === 'spritz') { c.fillStyle = '#ff8a1a'; c.beginPath(); c.arc(5.5 * u, -9.5 * u, 3 * u, 0, 7); c.fill(); c.fillStyle = '#ffd08a'; c.beginPath(); c.arc(5.5 * u, -9.5 * u, 2.1 * u, 0, 7); c.fill(); c.strokeStyle = '#7ac74f'; c.lineWidth = 1.2 * u; c.beginPath(); c.moveTo(-1 * u, -3 * u); c.lineTo(-3.5 * u, -14 * u); c.stroke(); }
+  } else if (kind === 'coca' || kind === 'suze' || kind === 'suzecoca' || kind === 'rivella' || kind === 'mojito') {
+    const tall = kind === 'mojito' || kind === 'coca' || kind === 'suzecoca' || kind === 'rivella';
     const top = tall ? -10 : -5, bot = 9, wt = tall ? 6 : 7, wb = tall ? 5 : 5.5;
-    const liq = { coca: ['#5a1e10', '#2a0c06'], suze: ['#ffe35a', '#e8b820'], suzelait: ['#fbf6e6', '#efe2b8'], mojito: ['#dff7d0', '#a8e08a'] }[kind];
+    const liq = { coca: ['#5a1e10', '#2a0c06'], suze: ['#ffe35a', '#e8b820'], suzecoca: ['#8a5a1a', '#4a2a0c'], rivella: ['#f2d98a', '#d9b040'], mojito: ['#dff7d0', '#a8e08a'] }[kind];
     const glass = () => { c.beginPath(); c.moveTo(-wt * u, top * u); c.lineTo(-wb * u, bot * u); c.lineTo(wb * u, bot * u); c.lineTo(wt * u, top * u); c.closePath(); };
     c.fillStyle = 'rgba(255,255,255,0.25)'; glass(); c.fill();
     c.save(); glass(); c.clip();
@@ -405,14 +423,14 @@ export function drawItem(c, kind, x, y, s, o = {}) {
     c.fillStyle = kind === 'coca' ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.6)'; c.strokeStyle = 'rgba(255,255,255,0.8)'; c.lineWidth = 0.4 * u;
     for (let i = 0; i < 3; i++) { const ix = (-3 + i * 2.6) * u, iy = ly + (1 + (i % 2) * 2.5) * u; c.beginPath(); rr(c, ix - 1.6 * u, iy, 3.2 * u, 3 * u, 0.6 * u); c.fill(); c.stroke(); }
     if (kind === 'mojito') { c.fillStyle = '#2e9a3a'; for (let i = 0; i < 4; i++) { c.beginPath(); c.ellipse((-3 + i * 2) * u, (3 + (i % 2) * 3) * u, 1.8 * u, 0.9 * u, i, 0, 7); c.fill(); } }
-    if (kind === 'coca' || kind === 'suze') { c.fillStyle = 'rgba(255,255,255,0.55)'; for (let i = 0; i < 4; i++) { c.beginPath(); c.arc((-2 + i * 1.5) * u, (bot - 2 - ((o.t || 0) * 6 + i * 3) % (bot - top - 4)) * u, 0.4 * u, 0, 7); c.fill(); } }
+    if (kind !== 'mojito') { c.fillStyle = 'rgba(255,255,255,0.55)'; for (let i = 0; i < 4; i++) { c.beginPath(); c.arc((-2 + i * 1.5) * u, (bot - 2 - ((o.t || 0) * 6 + i * 3) % (bot - top - 4)) * u, 0.4 * u, 0, 7); c.fill(); } }
     c.restore();
     c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = 1 * u; glass(); c.stroke();
     // décorations
     if (kind === 'mojito') { c.fillStyle = '#8fd14f'; c.beginPath(); c.arc(wt * u, top * u + 1 * u, 3 * u, 0, 7); c.fill(); c.fillStyle = '#d8f5a8'; c.beginPath(); c.arc(wt * u, top * u + 1 * u, 2.2 * u, 0, 7); c.fill(); c.fillStyle = '#2e9a3a'; c.beginPath(); c.ellipse(-2 * u, (top - 1.5) * u, 2.4 * u, 1.1 * u, -0.5, 0, 7); c.ellipse(1 * u, (top - 2) * u, 2.4 * u, 1.1 * u, 0.5, 0, 7); c.fill(); }
-    if (kind === 'coca') { c.fillStyle = '#f2e14a'; c.beginPath(); c.arc(-wt * u, top * u + 1.5 * u, 2.6 * u, 0, 7); c.fill(); c.fillStyle = '#fff6b0'; c.beginPath(); c.arc(-wt * u, top * u + 1.5 * u, 1.8 * u, 0, 7); c.fill(); }
-    if (kind === 'suzelait') { c.fillStyle = '#fffdf5'; c.beginPath(); c.ellipse(0, (top + 2.5) * u, wt * 0.95 * u, 1.2 * u, 0, 0, 7); c.fill(); }
-    if (tall) { c.strokeStyle = kind === 'coca' ? '#e8283a' : '#ff6b8a'; c.lineWidth = 1.2 * u; c.beginPath(); c.moveTo(1 * u, 6 * u); c.lineTo(4 * u, (top - 4) * u); c.stroke(); }
+    if (kind === 'coca' || kind === 'suzecoca') { c.fillStyle = '#f2e14a'; c.beginPath(); c.arc(-wt * u, top * u + 1.5 * u, 2.6 * u, 0, 7); c.fill(); c.fillStyle = '#fff6b0'; c.beginPath(); c.arc(-wt * u, top * u + 1.5 * u, 1.8 * u, 0, 7); c.fill(); }
+    if (kind === 'suzecoca') { c.fillStyle = 'rgba(255,220,60,0.55)'; c.beginPath(); c.ellipse(0, (top + 3) * u, wt * 0.9 * u, 1.3 * u, 0, 0, 7); c.fill(); }
+    if (tall) { c.strokeStyle = kind === 'coca' ? '#e8283a' : kind === 'suzecoca' ? '#f2c21a' : kind === 'rivella' ? '#d52b1e' : '#ff6b8a'; c.lineWidth = 1.2 * u; c.beginPath(); c.moveTo(1 * u, 6 * u); c.lineTo(4 * u, (top - 4) * u); c.stroke(); }
     if (kind === 'suze') { c.fillStyle = '#ffd84a'; c.font = `900 ${4 * u}px Nunito, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; }
   } else if (kind === 'kirsch') {
     c.fillStyle = 'rgba(255,255,255,0.3)'; c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = 1 * u;

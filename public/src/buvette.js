@@ -11,7 +11,7 @@ import { roundRect as rr } from './draw.js';
 
 export const DAY_LEN = 80;          // secondes par journée
 export const REP_MAX = 3;           // 3 cœurs : 3 clients fâchés et le chalet ferme
-export const UNLOCK = { beer: 1, coca: 1, suze: 1, cuchaule: 2, sausage: 3, mojito: 4, meringue: 5, suzelait: 5, kirsch: 6, fondue: 7 };
+export const UNLOCK = { beer: 1, vinblanc: 1, suzecoca: 1, coca: 2, suze: 3, cuchaule: 3, rivella: 4, sausage: 4, spritz: 5, mojito: 6, kirsch: 7, fondue: 8 };
 
 // Améliorations (boutique) : niveaux et prix
 export const UPGRADES = [
