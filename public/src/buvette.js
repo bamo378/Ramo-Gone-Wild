@@ -11,7 +11,7 @@ import { roundRect as rr } from './draw.js';
 
 export const DAY_LEN = 80;          // secondes par journée
 export const REP_MAX = 5;           // clients fâchés tolérés
-export const UNLOCK = { beer: 1, cuchaule: 2, sausage: 3, meringue: 4, kirsch: 5, fondue: 6 };
+export const UNLOCK = { beer: 1, coca: 2, cuchaule: 3, suze: 3, sausage: 4, mojito: 5, meringue: 6, suzelait: 6, kirsch: 7, fondue: 8 };
 
 // Améliorations (boutique) : niveaux et prix
 export const UPGRADES = [
@@ -84,9 +84,9 @@ export class Buvette {
     const n = this.seats; this.spotW = W / n;
     this.S = Math.min(this.spotW * 1.12, H * 0.2, 165);
     // zone de Ramo (il court vers les stations)
-    this.ramoY = this.counterY + this.counterH; this.ramoH = Math.round(H * 0.2);
+    this.ramoY = this.counterY + this.counterH; this.ramoH = Math.round(H * (this.menu.length > 6 ? 0.15 : 0.2));
     const sy = this.ramoY + this.ramoH, ids = this.menu.map((k) => (k === 'sausage' ? 'grill' : k));
-    const cols = ids.length === 1 ? 1 : ids.length <= 4 ? 2 : 3, rows = Math.ceil(ids.length / cols), cw = W / cols;
+    const cols = ids.length === 1 ? 1 : ids.length <= 4 ? 2 : ids.length <= 9 ? 3 : 4, rows = Math.ceil(ids.length / cols), cw = W / cols;
     const sh = Math.min((H - sy - 8) / Math.max(2, rows), 150);
     this.cells = ids.map((id, i) => { const r = Math.floor(i / cols), inRow = Math.min(cols, ids.length - r * cols), off = (W - inRow * cw) / 2;
       return { id, kind: id === 'grill' ? 'sausage' : id, x: off + (i % cols) * cw + 4, y: sy + r * sh + 4, w: cw - 8, h: sh - 8 }; });
@@ -338,9 +338,9 @@ export class Buvette {
     c.fillStyle = '#ffd84a'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, x, y);
   }
   speech(c, cu) {
-    const b = this.custBox(cu), x = Math.max(70, Math.min(this.W - 70, b.cx + this.offX(cu))), y = b.bot - this.S * 1.55 - 14;
-    c.globalAlpha = Math.min(1, cu.sayT * 3);
     c.font = '800 13px Nunito, sans-serif'; const w = Math.min(this.W - 20, c.measureText(cu.sayTx).width + 18);
+    const b = this.custBox(cu), x = Math.max(w / 2 + 6, Math.min(this.W - w / 2 - 6, b.cx + this.offX(cu))), y = b.bot - this.S * 1.55 - 14;
+    c.globalAlpha = Math.min(1, cu.sayT * 3);
     c.fillStyle = cu.st === 'angry' ? '#ffe1e1' : '#fffbe8'; rr(c, x - w / 2, y - 13, w, 26, 13); c.fill();
     c.fillStyle = '#3a2a1a'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(cu.sayTx, x, y);
     c.globalAlpha = 1;
@@ -408,7 +408,9 @@ export class Buvette {
       }
       if (want && this.tut >= 0 && this.tut < 4 && !this.tutHand) { this.tutHand = 1; const hb = Math.abs(Math.sin(t * 5)) * 14; c.font = '44px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('👆', cx + w * 0.18, y + h * 0.62 + hb); }
       c.fillStyle = adult ? '#ffd1f4' : '#6a3a18'; c.font = `900 ${Math.max(12, Math.round(Math.min(w, 140) * 0.12))}px Nunito, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText(`${ITEMS[kind].name.toUpperCase()}  ·  ${Math.round(ITEMS[kind].price * this.priceMult)}.-`, cx, y + h - 14);
+      const pr = `${Math.round(ITEMS[kind].price * this.priceMult)}.-`;
+      if (w < 120) { c.font = `900 ${w < 90 ? 10 : 11}px Nunito, sans-serif`; c.fillText(ITEMS[kind].name.toUpperCase(), cx, y + h - 11); c.font = '800 10px Nunito, sans-serif'; c.textAlign = 'left'; c.fillText(pr, x + 6, y + 11); }
+      else c.fillText(`${ITEMS[kind].name.toUpperCase()}  ·  ${pr}`, cx, y + h - 14);
     }
   }
   cellIcon(c, id, cx, cy, s, t) {
@@ -430,7 +432,7 @@ export class Buvette {
       // progression de la cuisson
       slots.forEach((sl, k) => { if (!sl) return; const bx = cx - s * 0.7, bw = s * 1.4, by = cy + s * 0.5 + k * 7;
         c.fillStyle = 'rgba(0,0,0,0.2)'; rr(c, bx, by, bw, 5, 3); c.fill(); c.fillStyle = sl.c >= 1 ? '#3cc45a' : '#f2b632'; rr(c, bx, by, bw * Math.min(1, sl.c), 5, 3); c.fill(); });
-      if (slots.every((q) => !q)) { c.fillStyle = this.adult ? '#ffd1f4' : 'rgba(0,0,0,0.5)'; c.font = '800 11px Nunito, sans-serif'; c.textAlign = 'center'; c.fillText('TAPE pour lancer', cx, cy + s * 0.58); }
+      if (slots.every((q) => !q) && s > 60) { c.fillStyle = this.adult ? '#ffd1f4' : 'rgba(0,0,0,0.5)'; c.font = '800 11px Nunito, sans-serif'; c.textAlign = 'center'; c.fillText('TAPE pour lancer', cx, cy + s * 0.58); }
       return;
     }
     const cool = this.cool[id] || 0;
@@ -456,13 +458,13 @@ export class Buvette {
     c.fillStyle = `rgba(10,5,20,${0.55 * k})`; c.fillRect(0, 0, W, H);
     c.save(); c.translate(W / 2, H * 0.36); c.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k);
     c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.font = '900 16px Nunito, sans-serif'; c.fillStyle = '#ffd84a'; c.fillText(this.adult ? 'CHALET DES 4F · AFTER DARK' : 'CHALET DES 4F · GYM BULLE', 0, -56);
+    c.font = '900 16px Nunito, sans-serif'; c.fillStyle = '#ffd84a'; c.fillText(this.adult ? 'CHALET DE LA GYM · 4F · AFTER DARK' : 'CHALET DE LA GYM · 4F · BULLE', 0, -56);
     c.font = '54px "Luckiest Guy", Nunito, sans-serif'; c.fillStyle = '#fff'; c.strokeStyle = '#7a2a18'; c.lineWidth = 8; c.strokeText(`JOUR ${this.day}`, 0, 0); c.fillText(`JOUR ${this.day}`, 0, 0);
     c.font = '800 15px Nunito, sans-serif'; c.fillStyle = '#fff';
     c.fillText(`Objectif : ${this.targets[0]} CHF  ·  ★★ ${this.targets[1]}  ·  ★★★ ${this.targets[2]}`, 0, 44);
     if (this.event) { const e = EVENTS[this.event]; c.font = '900 19px Nunito, sans-serif'; c.fillStyle = '#4fe3ff'; c.fillText(e.name, 0, 82); c.font = '700 13px Nunito, sans-serif'; c.fillStyle = '#e8e0ff'; c.fillText(e.sub, 0, 104); }
-    const nu = Object.keys(UNLOCK).find((k2) => UNLOCK[k2] === this.day && this.day > 1);
-    if (nu) { c.font = '900 16px Nunito, sans-serif'; c.fillStyle = '#7CFF6B'; c.fillText(`NOUVEAU : ${ITEMS[nu].emo} ${ITEMS[nu].name} au menu !`, 0, this.event ? 132 : 82); }
+    const nus = Object.keys(UNLOCK).filter((k2) => UNLOCK[k2] === this.day && this.day > 1), nu = nus.length;
+    if (nu) { c.font = '900 16px Nunito, sans-serif'; c.fillStyle = '#7CFF6B'; c.fillText(`NOUVEAU : ${nus.map((k2) => ITEMS[k2].emo + ' ' + ITEMS[k2].name).join(' + ')} !`, 0, this.event ? 132 : 82); }
     c.restore();
   }
 }

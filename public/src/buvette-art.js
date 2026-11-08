@@ -343,6 +343,10 @@ export const ITEMS = {
   meringue: { name: 'Meringue', price: 6, emo: '🍮' },
   fondue: { name: 'Fondue', price: 12, emo: '🫕' },
   kirsch: { name: 'Kirsch', price: 5, emo: '🥃' },
+  coca: { name: 'Coca', price: 4, emo: '🥤' },
+  suze: { name: 'Suze', price: 6, emo: '🍸' },
+  mojito: { name: 'Mojito', price: 9, emo: '🍹' },
+  suzelait: { name: 'Suze lait', price: 6, emo: '🥛' },
 };
 export function drawItem(c, kind, x, y, s, o = {}) {
   c.save(); c.translate(x, y); const u = s / 20;
@@ -388,6 +392,28 @@ export function drawItem(c, kind, x, y, s, o = {}) {
     c.strokeStyle = '#9aa0a8'; c.lineWidth = 0.9 * u; c.beginPath(); c.moveTo(3 * u, -1 * u); c.lineTo(9 * u, -11 * u); c.stroke();
     c.fillStyle = '#f0c070'; c.fillRect(1.6 * u, -3 * u, 3 * u, 3 * u);
     c.strokeStyle = 'rgba(255,255,255,0.5)'; c.lineWidth = 0.8 * u; for (let i = 0; i < 2; i++) { const t = ((o.t || 0) * 0.8 + i * 0.5) % 1; c.globalAlpha = 1 - t; c.beginPath(); c.moveTo(-3 * u + i * 4 * u, -4 * u - t * 8 * u); c.quadraticCurveTo(-1 * u + i * 4 * u, -6 * u - t * 8 * u, -3 * u + i * 4 * u, -9 * u - t * 8 * u); c.stroke(); } c.globalAlpha = 1;
+  } else if (kind === 'coca' || kind === 'suze' || kind === 'suzelait' || kind === 'mojito') {
+    const tall = kind === 'mojito' || kind === 'coca';
+    const top = tall ? -10 : -5, bot = 9, wt = tall ? 6 : 7, wb = tall ? 5 : 5.5;
+    const liq = { coca: ['#5a1e10', '#2a0c06'], suze: ['#ffe35a', '#e8b820'], suzelait: ['#fbf6e6', '#efe2b8'], mojito: ['#dff7d0', '#a8e08a'] }[kind];
+    const glass = () => { c.beginPath(); c.moveTo(-wt * u, top * u); c.lineTo(-wb * u, bot * u); c.lineTo(wb * u, bot * u); c.lineTo(wt * u, top * u); c.closePath(); };
+    c.fillStyle = 'rgba(255,255,255,0.25)'; glass(); c.fill();
+    c.save(); glass(); c.clip();
+    const ly = (top + 2.5) * u, lg = c.createLinearGradient(0, ly, 0, bot * u); lg.addColorStop(0, liq[0]); lg.addColorStop(1, liq[1]);
+    c.fillStyle = lg; c.fillRect(-8 * u, ly, 16 * u, (bot - top) * u);
+    // glaçons
+    c.fillStyle = kind === 'coca' ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.6)'; c.strokeStyle = 'rgba(255,255,255,0.8)'; c.lineWidth = 0.4 * u;
+    for (let i = 0; i < 3; i++) { const ix = (-3 + i * 2.6) * u, iy = ly + (1 + (i % 2) * 2.5) * u; c.beginPath(); rr(c, ix - 1.6 * u, iy, 3.2 * u, 3 * u, 0.6 * u); c.fill(); c.stroke(); }
+    if (kind === 'mojito') { c.fillStyle = '#2e9a3a'; for (let i = 0; i < 4; i++) { c.beginPath(); c.ellipse((-3 + i * 2) * u, (3 + (i % 2) * 3) * u, 1.8 * u, 0.9 * u, i, 0, 7); c.fill(); } }
+    if (kind === 'coca' || kind === 'suze') { c.fillStyle = 'rgba(255,255,255,0.55)'; for (let i = 0; i < 4; i++) { c.beginPath(); c.arc((-2 + i * 1.5) * u, (bot - 2 - ((o.t || 0) * 6 + i * 3) % (bot - top - 4)) * u, 0.4 * u, 0, 7); c.fill(); } }
+    c.restore();
+    c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = 1 * u; glass(); c.stroke();
+    // décorations
+    if (kind === 'mojito') { c.fillStyle = '#8fd14f'; c.beginPath(); c.arc(wt * u, top * u + 1 * u, 3 * u, 0, 7); c.fill(); c.fillStyle = '#d8f5a8'; c.beginPath(); c.arc(wt * u, top * u + 1 * u, 2.2 * u, 0, 7); c.fill(); c.fillStyle = '#2e9a3a'; c.beginPath(); c.ellipse(-2 * u, (top - 1.5) * u, 2.4 * u, 1.1 * u, -0.5, 0, 7); c.ellipse(1 * u, (top - 2) * u, 2.4 * u, 1.1 * u, 0.5, 0, 7); c.fill(); }
+    if (kind === 'coca') { c.fillStyle = '#f2e14a'; c.beginPath(); c.arc(-wt * u, top * u + 1.5 * u, 2.6 * u, 0, 7); c.fill(); c.fillStyle = '#fff6b0'; c.beginPath(); c.arc(-wt * u, top * u + 1.5 * u, 1.8 * u, 0, 7); c.fill(); }
+    if (kind === 'suzelait') { c.fillStyle = '#fffdf5'; c.beginPath(); c.ellipse(0, (top + 2.5) * u, wt * 0.95 * u, 1.2 * u, 0, 0, 7); c.fill(); }
+    if (tall) { c.strokeStyle = kind === 'coca' ? '#e8283a' : '#ff6b8a'; c.lineWidth = 1.2 * u; c.beginPath(); c.moveTo(1 * u, 6 * u); c.lineTo(4 * u, (top - 4) * u); c.stroke(); }
+    if (kind === 'suze') { c.fillStyle = '#ffd84a'; c.font = `900 ${4 * u}px Nunito, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle'; }
   } else if (kind === 'kirsch') {
     c.fillStyle = 'rgba(255,255,255,0.3)'; c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = 1 * u;
     c.beginPath(); c.moveTo(-4 * u, -4 * u); c.lineTo(-3 * u, 8 * u); c.lineTo(3 * u, 8 * u); c.lineTo(4 * u, -4 * u); c.closePath(); c.fill(); c.stroke();
@@ -456,14 +482,15 @@ export function drawScene(c, W, H, top, counterY, adult, t, layer = 'all') {
   c.strokeStyle = 'rgba(0,0,0,0.18)'; c.lineWidth = 1;
   for (let y = wallTop - roofH + 22; y < wallTop; y += 6) { const k = (y - (wallTop - roofH + 12)) / (roofH - 10); c.beginPath(); c.moveTo(cx - (cw * 0.44) * k, y); c.lineTo(cx + (cw * 0.44) * k, y); c.stroke(); }
   // enseigne « CHALET DES 4F »
-  const sw = Math.min(cw * 0.5, 230), sh = Math.max(20, roofH * 0.34), sy = wallTop - roofH * 0.42;
+  const sw = Math.min(cw * 0.8, W - 24, 340), sh = Math.max(30, roofH * 0.46), sy = wallTop - roofH * 0.36;
   c.fillStyle = adult ? '#140a1e' : '#f4ead2'; rr(c, cx - sw / 2, sy - sh / 2, sw, sh, 5); c.fill();
   c.strokeStyle = adult ? '#ff4fd8' : '#5a3020'; c.lineWidth = 2.5; c.stroke();
-  c.font = `900 ${Math.round(sh * 0.62)}px "Luckiest Guy", Nunito, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.font = `900 ${Math.round(Math.min(sh * 0.66, sw / 9.5))}px "Luckiest Guy", Nunito, sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
   if (adult) { c.shadowColor = '#ff4fd8'; c.shadowBlur = 12 + 4 * Math.sin(t * 6); c.fillStyle = '#ffd1f4'; } else c.fillStyle = '#7a2a18';
-  c.fillText('CHALET DES 4F', cx, sy + 1); c.shadowBlur = 0;
+  c.fillText('CHALET DE LA GYM', cx, sy + 2); c.shadowBlur = 0;
   c.font = `800 ${Math.round(sh * 0.36)}px Nunito, sans-serif`; c.fillStyle = adult ? '#9ff' : '#f4ead2';
-  c.fillText(adult ? 'AFTER DARK · BULLE' : 'GYM BULLE', cx, sy + sh * 0.92);
+  const st = adult ? '4F · BULLE · AFTER DARK' : '4F · BULLE'; c.font = `900 ${Math.round(sh * 0.4)}px Nunito, sans-serif`; const tw = c.measureText(st).width + 20;
+  c.fillStyle = adult ? '#ff4fd8' : '#7a2a18'; rr(c, cx - tw / 2, sy + sh / 2 - 2, tw, sh * 0.55, 6); c.fill(); c.fillStyle = adult ? '#fff' : '#f4ead2'; c.fillText(st, cx, sy + sh / 2 + sh * 0.27 - 2);
   }
   if (!DY) return;
   // fanions (noir et blanc de Fribourg + rouge suisse) et lampions
