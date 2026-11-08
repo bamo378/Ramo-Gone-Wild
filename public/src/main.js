@@ -115,28 +115,28 @@ const ui = {
   buvDay(r) {
     $('hud').classList.add('hidden');
     const S = store.buv(r.mode);
-    S.money += r.earned; S.total += r.earned; S.time += r.duration;
+    S.money += r.money; S.total += r.money; S.time += r.duration; S.best = Math.max(S.best || 0, r.earned);
     const prevStars = S.stars[r.day] || 0; S.stars[r.day] = Math.max(prevStars, r.stars);
     const advanced = r.stars >= 1 && r.day === S.day; if (advanced) S.day++;
     store.saveBuv(r.mode, S);
     const key = boardKey('buvette', r.mode), dur = Math.max(3, Math.min(3600, S.time));
-    store.submit(key, S.total, S.day, dur);
+    if (r.earned > 0) store.submit(key, r.earned, S.day, dur);
     $('bvTitle').textContent = r.closed ? 'LE CHALET FERME ! 😬' : r.stars >= 3 ? 'SOIRÉE DE FOLIE ! 🎉' : r.stars >= 1 ? 'BELLE JOURNÉE ! 🍻' : 'PAS ASSEZ… 😅';
     $('bvStars').innerHTML = [0, 1, 2].map((i) => `<span class="bstar ${i < r.stars ? 'on' : ''}" style="animation-delay:${0.2 + i * 0.25}s">★</span>`).join('');
     $('bvLines').innerHTML = [
-      ['🙋 Clients servis', r.served], ['💰 Pourboires', `${r.tips} CHF`], ['🔥 Meilleur combo', `x${Math.max(1, r.bestCombo)}`], ['😤 Clients fâchés', r.angry], ['💸 Pertes (gaspillage, fâchés)', `-${r.lost || 0} CHF`],
+      ['🙋 Clients servis', r.served], ['🔥 Meilleur combo', `x${Math.max(1, r.bestCombo)}`], ['😤 Clients fâchés', `${r.angry} / 3`], ['💸 Points perdus (erreurs)', `-${r.lost || 0}`], ['💰 Pour la caisse', `+${r.money} CHF`],
       ['🎯 Objectifs', r.targets.map((t, i) => `${'★'.repeat(i + 1)} ${t}`).join(' · ')],
     ].map(([a, b]) => `<div><span>${a}</span><b>${b}</b></div>`).join('');
-    $('bvEarned').textContent = `${r.earned} CHF`; $('bvMoney').textContent = `${S.money} CHF`;
-    $('bvMsg').textContent = r.stars >= 1 ? (advanced ? `🔓 Jour ${S.day} débloqué !` : '') : `Il faut ${r.targets[0]} CHF pour passer au jour suivant. Achète des améliorations à la boutique !`;
+    $('bvEarned').textContent = `${r.earned.toLocaleString('fr-CH')} pts`; $('bvMoney').textContent = `${S.money} CHF`;
+    $('bvMsg').textContent = r.stars >= 1 ? (advanced ? `🔓 Jour ${S.day} débloqué !` : '') : r.closed ? '3 clients fâchés : journée perdue ! Réessaie 💪' : `Il faut ${r.targets[0]} points pour passer au jour suivant !`;
     const rk = $('bvRank'); rk.textContent = '🌍 Envoi au classement…';
-    submitOnline(key, S.total, S.day, dur).then((res) => {
-      rk.innerHTML = res ? `🌍 Total gagné ${S.total.toLocaleString('fr-CH')} CHF · <b>${res.rank === 1 ? '🥇 N°1' : res.rank + 'e'}</b> sur ${res.total}` : `🌍 Total gagné ${S.total.toLocaleString('fr-CH')} CHF`;
+    (r.earned > 0 ? submitOnline(key, r.earned, S.day, dur) : Promise.resolve(null)).then((res) => {
+      rk.innerHTML = res ? `🌍 Meilleure journée ${S.best.toLocaleString('fr-CH')} pts · <b>${res.rank === 1 ? '🥇 N°1' : res.rank + 'e'}</b> sur ${res.total}` : `🏆 Meilleure journée : ${S.best.toLocaleString('fr-CH')} pts`;
       lastRank = res && res.rank;
     });
     buvDayNext = r.stars >= 1 ? S.day : r.day;
     $('btnBvNext').textContent = r.stars >= 1 ? `JOUR ${S.day} ▶` : `↻ RÉESSAYER LE JOUR ${r.day}`;
-    lastScore = S.total;
+    lastScore = S.best;
     $('bvSummary').classList.remove('hidden'); $('bvShop').classList.add('hidden');
     updateShopBtn(); show('buvDay');
   },
