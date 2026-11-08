@@ -11,8 +11,20 @@ function load() {
   try { return { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; }
   catch { return { ...defaults }; }
 }
+// Copie de secours du pseudo et de l'identifiant dans un cookie (1 an) :
+// certains navigateurs (WhatsApp, mode privé, iPhone) vident le localStorage.
+function readCookie() {
+  try { const m = document.cookie.match(/(?:^|; )ramo_id=([^;]*)/); return m ? JSON.parse(decodeURIComponent(m[1])) : null; } catch { return null; }
+}
+function writeCookie() {
+  try { document.cookie = `ramo_id=${encodeURIComponent(JSON.stringify({ p: data.pseudo || '', i: data.playerId || '' }))}; max-age=31536000; path=/; SameSite=Lax; Secure`; } catch { /* ignore */ }
+}
 let data = load();
-function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* stockage indisponible */ } }
+{ const ck = readCookie(); if (ck) { if (!data.pseudo && ck.p) data.pseudo = ck.p; if (!data.playerId && ck.i) data.playerId = ck.i; } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* stockage indisponible */ } writeCookie(); }
+save();
+// demande au navigateur de garder nos données (évite l'effacement automatique)
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch { /* ignore */ }
 
 export const store = {
   get pseudo() { return data.pseudo; },
