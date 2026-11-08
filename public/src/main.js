@@ -1,5 +1,6 @@
 import { Game } from './game.js';
 import { store, submitOnline, fetchBoard, syncBest } from './storage.js';
+import { WORLDS, LEVEL_IDS } from './bros-levels.js';
 import { initAudio, setSound, startMusic, stopMusic, sfx } from './audio.js';
 import { MSG_GAMEOVER, MSG_GAMEOVER_ADULT, SHARE_TEXT, LEVELS, LEVEL_ORDER, levelById } from './config.js';
 
@@ -16,7 +17,7 @@ const boardKey = (c, m) => levelById(c).board(m);
 function loadImg(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
 
 const ui = {
-  hud({ score, lives, distance, bonus, combo, mole, timeLeft, progress, cross }) {
+  hud({ score, lives, distance, bonus, combo, mole, timeLeft, progress, cross, brosText }) {
     $('hScore').textContent = score.toLocaleString('fr-CH');
     $('hLives').classList.toggle('hidden', !!cross);
     const cb = $('hCombo');
@@ -29,7 +30,8 @@ const ui = {
       $('hProgFill').style.width = `${(progress * 100).toFixed(1)}%`;
       $('hProgRamo').style.left = `${(progress * 100).toFixed(1)}%`;
     }
-    $('hDist').textContent = cross ? `🐾 ${distance} rangées` : `${distance.toLocaleString('fr-CH')} m`;
+    $('hDist').textContent = brosText || (cross ? `🐾 ${distance} rangées` : `${distance.toLocaleString('fr-CH')} m`);
+    $('brosPad').classList.toggle('hidden', !brosText);
     const icon = mode === 'adult' ? '💋' : '🍺';
     const html = Array.from({ length: 3 }, (_, i) => `<span class="${i < lives ? '' : 'lost'}">${icon}</span>`).join('');
     if ($('hLives').innerHTML !== html) $('hLives').innerHTML = html;
@@ -40,7 +42,14 @@ const ui = {
     const t = $('toast'); t.textContent = text; t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), dur * 1000);
   },
-  gameOver({ score, distance, mode: md, duration, course: crs, result, timeLeft }) {
+  gameOver({ score, distance, mode: md, duration, course: crs, result, timeLeft, brosId }) {
+    $('brosPad').classList.add('hidden');
+    if (crs === 'bros') {
+      $('overTitle').textContent = 'GAME OVER'; $('overMsg').textContent = `Plus de vies au niveau ${brosId.replace('B', 'BOSS')}… Une bière et on y retourne !`;
+      $('oScore').textContent = score.toLocaleString('fr-CH'); $('oBest').textContent = ((store.bros(md)[brosId] || {}).best || 0).toLocaleString('fr-CH');
+      $('oDist').textContent = brosId.replace('B', 'BOSS'); $('oDistLabel').textContent = 'NIVEAU'; $('oRecord').classList.add('hidden'); $('oRank').textContent = '';
+      $('hud').classList.add('hidden'); lastScore = score; show('over'); return;
+    }
     const m = boardKey(crs, md), mole = crs === 'moleson';
     const isRecord = store.submit(m, score, distance, duration);
     const rk = $('oRank'); rk.textContent = '🌍 Envoi au classement…';
@@ -77,9 +86,36 @@ const ui = {
         body: JSON.stringify({ where, msg: String(e && e.message || e), stack: String(e && e.stack || '').slice(0, 1500), course, mode, ua: navigator.userAgent }) });
     } catch { /* ignore */ }
   },
+  brosDone(r) {
+    $('brosPad').classList.add('hidden'); $('hud').classList.add('hidden');
+    const isBest = store.saveBros(r.mode, r.id, r);
+    const P = store.bros(r.mode), total = brosTotal(r.mode);
+    const done = LEVEL_IDS.filter((id) => P[id] && P[id].done).length, dur = LEVEL_IDS.reduce((a, id) => a + ((P[id] && P[id].time) || 0), 0);
+    const key = boardKey('bros', r.mode);
+    store.submit(key, total, done, dur);
+    $('bdTitle').textContent = r.boss ? 'BOSS VAINCU ! 🏆' : 'NIVEAU TERMINÉ !';
+    $('bdStars').innerHTML = r.stars.map((s, i) => `<span class="bstar ${s ? 'on' : ''}" style="animation-delay:${0.2 + i * 0.25}s">★</span>`).join('');
+    $('bdStars').classList.toggle('hidden', r.boss);
+    $('bdLines').innerHTML = [
+      ['🍺 Bières', r.beers], ['🚩 Drapeau', `+${r.flagBonus}`], ['⏱ Temps', `${Math.round(r.time)} s · +${r.timeBonus}`], ['❤️ Vies restantes', `+${r.lifeBonus}`],
+    ].map(([a, b]) => `<div><span>${a}</span><b>${b}</b></div>`).join('');
+    $('bdScore').textContent = r.score.toLocaleString('fr-CH');
+    $('bdBest').textContent = isBest ? '🎉 NOUVEAU RECORD DU NIVEAU !' : `Record du niveau : ${P[r.id].best.toLocaleString('fr-CH')}`;
+    const rk = $('bdRank'); rk.textContent = '🌍 Envoi au classement…';
+    submitOnline(key, total, done, dur).then((res) => {
+      rk.innerHTML = res ? `🌍 Total ${total.toLocaleString('fr-CH')} pts · <b>${res.rank === 1 ? '🥇 N°1' : res.rank + 'e'}</b> sur ${res.total}` : `🌍 Total ${total.toLocaleString('fr-CH')} pts`;
+      lastRank = res && res.rank;
+    });
+    const next = LEVEL_IDS[LEVEL_IDS.indexOf(r.id) + 1];
+    $('btnBdNext').classList.toggle('hidden', !next); if (next) $('btnBdNext').textContent = `NIVEAU ${next.replace('B', 'BOSS')} ▶`;
+    brosNext = next; lastScore = total;
+    sfx.record(); show('brosDone');
+  },
   loveRoom(on) { $('btnSkipLove').classList.toggle('hidden', !on); },
 };
 let lastScore = 0;
+let brosLevel = '1-1', brosNext = null;
+const brosTotal = (md) => Object.values(store.bros(md)).reduce((a, l) => a + (l.best || 0), 0);
 let lastRank = null;
 let boardMode = 'classic';
 let pendingPlay = false;
@@ -100,7 +136,9 @@ function updateHello() { $('hello').textContent = store.pseudo ? `Salut ${store.
 function showLevels() {
   const cards = LEVEL_ORDER.map(levelById).map((l) => {
     const best = store.best(l.board(mode));
-    const info = l.id === 'traverse'
+    const info = l.id === 'bros'
+      ? { emo: '🍄', title: 'SUPER RAMO BROS', desc: '4 mondes, 12 niveaux et 4 boss : Bulle, Gruyères, le Moléson et le lac. Des bières partout !', tag: `NOUVEAU · ⭐ ${Object.values(store.bros(mode)).reduce((a, x) => a + (x.stars || []).filter(Boolean).length, 0)}/24` }
+      : l.id === 'traverse'
       ? { emo: '🦫', title: 'TRAVERSE BULLE', desc: 'Saute de case en case : routes, tracteurs, train, la Trême… Jusqu\'où iras-tu ?', tag: 'NOUVEAU · SANS FIN' }
       : l.id === 'moleson'
       ? { emo: '⛷️', title: 'LA DESCENTE DU MOLÉSON', desc: 'En luge jusqu\'à Gruyères ! Passe les portes de slalom pour gagner du temps.', tag: 'CHRONO · 2,2 km' }
@@ -111,22 +149,47 @@ function showLevels() {
     </button>`;
   }).join('');
   $('levelList').innerHTML = cards;
-  $('levelList').querySelectorAll('.level-card').forEach((b) => (b.onclick = () => { sfx.click(); course = b.dataset.id; hide('levels'); play(); }));
+  $('levelList').querySelectorAll('.level-card').forEach((b) => (b.onclick = () => { sfx.click(); hide('levels'); if (b.dataset.id === 'bros') { showBrosMap(); return; } course = b.dataset.id; play(); }));
   show('levels');
 }
+// ------------------------------------------------ Super Ramo Bros : carte des mondes
+function brosUnlocked(id) {
+  const i = LEVEL_IDS.indexOf(id); if (id.endsWith('-1')) return true; // le 1er niveau de chaque monde est ouvert
+  const prev = store.bros(mode)[LEVEL_IDS[i - 1]]; return !!(prev && prev.done);
+}
+function showBrosMap() {
+  const P = store.bros(mode);
+  const emo = { bulle: '🏘️', gruyeres: '🏰', moleson: '🏔️', lac: '⛵' };
+  $('brosWorlds').innerHTML = WORLDS.map((w) => `
+    <div class="bworld bw-${w.theme}">
+      <div class="bw-head"><span class="bw-emo">${emo[w.theme]}</span><span><b>MONDE ${w.id} · ${w.name}</b><small>${w.sub} · boss : ${w.boss.name}</small></span></div>
+      <div class="bw-levels">${[`${w.id}-1`, `${w.id}-2`, `${w.id}-B`].map((id) => {
+        const L = P[id] || {}, open = brosUnlocked(id), st = (L.stars || [false, false, false]);
+        return `<button class="blevel ${open ? '' : 'locked'} ${L.done ? 'done' : ''}" data-id="${id}" ${open ? '' : 'disabled'}>
+          <b>${id.endsWith('B') ? '👑 BOSS' : id}</b>
+          <small>${open ? (id.endsWith('B') ? (L.done ? '✅' : '') : st.map((s) => (s ? '★' : '☆')).join('')) : '🔒'}</small>
+          ${L.best ? `<em>${L.best.toLocaleString('fr-CH')}</em>` : ''}
+        </button>`;
+      }).join('')}</div>
+    </div>`).join('');
+  $('brosTotal').textContent = `Total : ${brosTotal(mode).toLocaleString('fr-CH')} pts · ⭐ ${Object.values(P).reduce((a, l) => a + (l.stars || []).filter(Boolean).length, 0)}/24`;
+  $('brosWorlds').querySelectorAll('.blevel:not(.locked)').forEach((b) => (b.onclick = () => { sfx.click(); brosLevel = b.dataset.id; course = 'bros'; hide('brosMap'); play(); }));
+  show('brosMap');
+}
+
 function updateSoundBtn() { $('btnSound').textContent = store.sound ? '🔊 SON' : '🔇 SON'; }
 
 function play() {
   initAudio();
   if (!store.pseudo) { pendingPlay = true; show('pseudo'); setTimeout(() => $('pseudoInput').focus(), 100); return; }
   if (!howtoSeen) { pendingPlay = true; show('howto'); return; }
-  hide('menu'); hide('over'); hide('pause'); hide('levels');
+  hide('menu'); hide('over'); hide('pause'); hide('levels'); hide('brosDone'); hide('brosMap');
   $('hud').classList.remove('hidden');
-  game.start(mode, course);
+  if (course === 'bros') game.startBros(mode, brosLevel); else game.start(mode, course);
   startMusic(mode);
 }
 function toMenu() {
-  hide('over'); hide('pause'); $('hud').classList.add('hidden'); $('btnSkipLove').classList.add('hidden');
+  hide('over'); hide('pause'); hide('brosDone'); hide('brosMap'); $('hud').classList.add('hidden'); $('btnSkipLove').classList.add('hidden'); $('brosPad').classList.add('hidden');
   game.state = 'idle'; game.reset(mode, 'bulle');
   stopMusic(); updateHello(); show('menu');
 }
@@ -159,13 +222,28 @@ function bindInput() {
     if (Math.max(Math.abs(dx), Math.abs(dy)) < TH) { if (!e.target.closest('button')) game.input('tap'); return; }
     if (Math.abs(dx) > Math.abs(dy)) game.input(dx > 0 ? 'right' : 'left'); else game.input(dy > 0 ? 'down' : 'up');
   });
+  const bkey = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'jump', ' ': 'jump', a: 'left', d: 'right', q: 'left', w: 'jump', z: 'jump' };
+  window.addEventListener('keydown', (e) => { if (game.bros && bkey[e.key] && game.state === 'play') { e.preventDefault(); game.bros.setKey(bkey[e.key], true); } });
+  window.addEventListener('keyup', (e) => { if (game.bros && bkey[e.key]) game.bros.setKey(bkey[e.key], false); });
+  // boutons tactiles (multi-touch) : zone gauche = direction, bouton droit = saut
+  const zone = $('padMove'), jumpB = $('padJump');
+  const moveIds = new Map();
+  const setMove = () => { const vals = [...moveIds.values()]; if (game.bros) { game.bros.setKey('left', vals.includes(-1)); game.bros.setKey('right', vals.includes(1)); }
+    $('padL').classList.toggle('on', vals.includes(-1)); $('padR').classList.toggle('on', vals.includes(1)); };
+  const dirOf = (e) => { const r = zone.getBoundingClientRect(); return e.clientX < r.left + r.width / 2 ? -1 : 1; };
+  zone.addEventListener('pointerdown', (e) => { e.preventDefault(); zone.setPointerCapture(e.pointerId); moveIds.set(e.pointerId, dirOf(e)); setMove(); });
+  zone.addEventListener('pointermove', (e) => { if (moveIds.has(e.pointerId)) { moveIds.set(e.pointerId, dirOf(e)); setMove(); } });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) zone.addEventListener(ev, (e) => { moveIds.delete(e.pointerId); setMove(); });
+  const jumpIds = new Set();
+  jumpB.addEventListener('pointerdown', (e) => { e.preventDefault(); jumpB.setPointerCapture(e.pointerId); jumpIds.add(e.pointerId); if (game.bros) game.bros.setKey('jump', true); jumpB.classList.add('on'); });
+  for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) jumpB.addEventListener(ev, (e) => { jumpIds.delete(e.pointerId); if (!jumpIds.size) { if (game.bros) game.bros.setKey('jump', false); jumpB.classList.remove('on'); } });
   window.addEventListener('keydown', (e) => {
     const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', a: 'left', d: 'right', w: 'up', s: 'down', q: 'left', z: 'up', ' ': 'up' };
     if (e.key === 'Escape' || e.key === 'p') { togglePause(); return; }
     if (map[e.key] && game.state === 'play') { e.preventDefault(); game.input(map[e.key]); }
     else if (e.key === 'Enter' && $('over').classList.contains('show')) play();
   });
-  document.addEventListener('touchmove', (e) => { if (e.target.tagName !== 'INPUT' && !e.target.closest('.board, .howto-card')) e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchmove', (e) => { if (e.target.tagName !== 'INPUT' && !e.target.closest('.board, .howto-card, .bros-card')) e.preventDefault(); }, { passive: false });
   document.addEventListener('gesturestart', (e) => e.preventDefault());
   document.addEventListener('dblclick', (e) => e.preventDefault());
 }
@@ -215,7 +293,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '
 let boardCourse = 'bulle';
 function renderRecords() {
   if (mode !== 'adult') boardMode = 'classic';
-  const ctabs = `<div class="tabs">${LEVEL_ORDER.map((id) => `<button class="tab ctab ${boardCourse === id ? 'on' : ''}" data-c="${id}">${{ traverse: '🦫 Traverse', moleson: '⛷️ Moléson', bulle: '🍺 Bulle' }[id]}</button>`).join('')}</div>`;
+  const ctabs = `<div class="tabs">${LEVEL_ORDER.map((id) => `<button class="tab ctab ${boardCourse === id ? 'on' : ''}" data-c="${id}">${{ bros: '🍄 Bros', traverse: '🦫 Traverse', moleson: '⛷️ Moléson', bulle: '🍺 Bulle' }[id]}</button>`).join('')}</div>`;
   const tabs = mode === 'adult'
     ? `<div class="tabs"><button class="tab ${boardMode === 'classic' ? 'on' : ''}" data-m="classic">Classique</button><button class="tab ${boardMode === 'adult' ? 'on' : ''}" data-m="adult">🔥 18+</button></div>` : '';
   const key = boardKey(boardCourse, boardMode);
@@ -245,6 +323,11 @@ async function boot() {
 
   $('btnPlay').onclick = () => { sfx.click(); initAudio(); showLevels(); };
   $('btnLevelsBack').onclick = () => hide('levels');
+  $('btnBrosBack').onclick = () => { hide('brosMap'); showLevels(); };
+  $('btnBdNext').onclick = () => { sfx.click(); if (brosNext) { brosLevel = brosNext; course = 'bros'; play(); } };
+  $('btnBdAgain').onclick = () => { sfx.click(); course = 'bros'; play(); };
+  $('btnBdMap').onclick = () => { hide('brosDone'); toMenu(); hide('menu'); showBrosMap(); };
+  $('btnBdShare').onclick = share;
   $('btnReplay').onclick = () => { sfx.click(); play(); };
   $('btnMenu').onclick = toMenu; $('btnQuit').onclick = toMenu;
   $('btnPause').onclick = togglePause; $('btnResume').onclick = togglePause;

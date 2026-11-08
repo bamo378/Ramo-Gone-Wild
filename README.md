@@ -3,7 +3,8 @@
 « Un castor, des bières et zéro limite ! » — runner 2.5D pour smartphone, dans les rues de Bulle (Gruyère).
 
 ## Parcours
-- **Traverse Bulle** (nouveau) : saute de case en case à travers Bulle — routes, tracteurs, bus, train, la Trême (troncs, meules de gruyère), place du Marché, château. Moteur à part : `src/crossy.js`.
+- **Super Ramo Bros** (nouveau) : jeu de plateformes, 4 mondes (Bulle, Gruyères, Moléson, Lac de la Gruyère) × 2 niveaux + 1 boss, carte des mondes, 3 étoiles par niveau, bières partout, sauvegarde et classement. Fichiers : `src/bros.js` (moteur), `src/bros-levels.js` (niveaux en caractères), `src/bros-art.js` (graphismes, boss).
+- **Traverse Bulle** : saute de case en case à travers Bulle — routes, tracteurs, bus, train, la Trême (troncs, meules de gruyère), place du Marché, château. Moteur à part : `src/crossy.js`.
 - **Mission apéro — Bulle** : sans fin, la Grand-Rue de Bulle.
 - **La descente du Moléson** : en luge jusqu'à Gruyères (2,2 km), chrono, portes de slalom (+3 s), stations Plan-Francey et Moléson-sur-Gruyères.
 Ajouter un parcours : une entrée dans `LEVELS` (`public/src/config.js`) + ses dessins.

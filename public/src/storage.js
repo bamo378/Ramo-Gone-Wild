@@ -19,6 +19,14 @@ export const store = {
   set pseudo(v) { data.pseudo = String(v).slice(0, 16); save(); },
   get tutorial() { return !!data.tutorial; },
   set tutorial(v) { data.tutorial = !!v; save(); },
+  // Super Ramo Bros : progression par mode → { niveau: { best, stars:[b,b,b], time } }
+  bros(mode) { data.brosP = data.brosP || {}; return (data.brosP[mode] = data.brosP[mode] || {}); },
+  saveBros(mode, id, r) {
+    const P = this.bros(mode), old = P[id] || { best: 0, stars: [false, false, false], time: 0 };
+    const isBest = r.score > old.best;
+    P[id] = { best: Math.max(old.best, r.score), stars: old.stars.map((s, i) => s || r.stars[i]), time: isBest ? Math.round(r.time) : old.time, done: true };
+    save(); return isBest;
+  },
   get sound() { return data.sound; },
   set sound(v) { data.sound = !!v; save(); },
   best(mode) { return data.best[mode] || 0; },

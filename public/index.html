@@ -128,6 +128,39 @@
     </div>
   </div>
 
+  <!-- Super Ramo Bros : commandes tactiles -->
+  <div id="brosPad" class="hidden">
+    <div id="padMove" class="pad-move"><span id="padL" class="pad-btn">◀</span><span id="padR" class="pad-btn">▶</span></div>
+    <div id="padJump" class="pad-btn pad-jump">⤴<small>SAUT</small></div>
+  </div>
+
+  <!-- Super Ramo Bros : carte des mondes -->
+  <div id="brosMap" class="screen modal-screen">
+    <div class="card bros-card">
+      <h2>SUPER RAMO BROS</h2>
+      <p class="note" id="brosTotal"></p>
+      <div id="brosWorlds" class="bworlds"></div>
+      <p class="howto-sub">◀ ▶ pour courir · ⤴ pour sauter · garde ⤴ appuyé en l'air pour planer avec la queue !</p>
+      <button class="btn ghost" id="btnBrosBack">Retour</button>
+    </div>
+  </div>
+
+  <!-- Super Ramo Bros : fin de niveau -->
+  <div id="brosDone" class="screen modal-screen">
+    <div class="card">
+      <div class="over-ramo"><img src="/assets/ramo-head.webp" alt="" /></div>
+      <h2 id="bdTitle">NIVEAU TERMINÉ !</h2>
+      <div id="bdStars" class="bstars"></div>
+      <div id="bdLines" class="bdlines"></div>
+      <div class="stats"><div><small>SCORE DU NIVEAU</small><b id="bdScore">0</b></div></div>
+      <p class="new-record" id="bdBest"></p>
+      <p class="rank-line" id="bdRank"></p>
+      <button class="btn big" id="btnBdNext">NIVEAU SUIVANT ▶</button>
+      <div class="row"><button class="btn" id="btnBdAgain">↻ Rejouer</button><button class="btn" id="btnBdMap">🗺️ Carte</button></div>
+      <button class="btn share" id="btnBdShare">📲 DÉFIER UN AMI</button>
+    </div>
+  </div>
+
   <!-- Choix du parcours -->
   <div id="levels" class="screen modal-screen">
     <div class="card levels-card">
@@ -156,6 +189,7 @@
         <div><span>🍻</span>Super chope : points ×2</div>
         <div><span>🔥</span>Enchaîne sans te cogner : COMBO jusqu'à ×5</div>
         <div><span>🚩</span>Moléson : passe les portes = +3 s au chrono</div>
+        <div><span>🍄</span>Super Ramo Bros : ◀ ▶ courir, ⤴ sauter (garde appuyé en l'air = planer). Saute sur les ennemis, tape les blocs « ? » !</div>
         <div><span>🦫</span>Traverse Bulle : tape pour sauter, glisse pour changer de colonne. Gare aux tracteurs, au train et à l'eau !</div>
         <div class="adult-only"><span>💋 🔥 🪩</span>Charme, coup de chaud, nuit de folie</div>
         <div class="adult-only"><span>❤️</span>Cœur LOVE : la Love Room !</div>
