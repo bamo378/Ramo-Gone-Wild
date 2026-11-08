@@ -63,7 +63,7 @@ export class Buvette {
     this.menu = Object.keys(UNLOCK).filter((k) => UNLOCK[k] <= this.day);
     this.targets = target(this.day);
     this.time = DAY_LEN; this.elapsed = 0; this.intro = 2.4;
-    this.earned = 0; this.tips = 0; this.served = 0; this.angry = 0; this.perfect = 0; this.rep = REP_MAX;
+    this.earned = 0; this.lost = 0; this.tips = 0; this.served = 0; this.angry = 0; this.perfect = 0; this.rep = REP_MAX;
     this.combo = 0; this.bestCombo = 0;
     this.custs = []; this.fly = []; this.spawnCd = 0.4; this.lastCall = false; this.ended = false; this.endT = 0;
     this.grill = Array.from({ length: 2 + L('grill') }, () => null);
@@ -126,7 +126,7 @@ export class Buvette {
       order.push({ kind: k, done: false });
     }
     order.sort((a, b) => Object.keys(ITEMS).indexOf(a.kind) - Object.keys(ITEMS).indexOf(b.kind));
-    let pat = (21 + order.length * 5 - Math.min(10, this.day * 0.5)) * this.patMult;
+    let pat = (8 + order.length * 2.6) * Math.max(0.6, 1 - this.day * 0.035) * this.patMult;
     if (order.some((o) => o.kind === 'fondue')) pat += 4;
     if (this.event === 'desalpe') pat *= 1.25;
     if (vip) pat *= 0.8;
@@ -172,9 +172,15 @@ export class Buvette {
     }
     if ((this.cool[id] || 0) > 0) return;
     const c = this.needy(kind);
-    if (!c) { this.floater(cx, cy, 'Personne n\'en veut !', '#fff'); sfx.lane(); return; }
+    if (!c) { this.penalty(cx, cy, 2, 'Personne n\'en veut ! Gaspillé'); return; }
     this.cool[id] = kind === 'beer' ? this.beerTime : 0.25;
     this.deliver(c, kind, cx, cell.y);
+  }
+  // Pénalité : on perd des sous et le combo
+  penalty(x, y, n, why) {
+    const lost = Math.min(this.earned, n); this.earned -= lost; this.lost += n; this.combo = 0;
+    this.g.burst(Math.max(90, Math.min(this.W - 90, x)), y, 'text', 1, { text: `${why} -${n} CHF`, color: '#ff5a5a', size: 18 });
+    sfx.hit(); this.ramo.shake = 0.35; this.ramo.mood = 'sad'; this.ramo.moodT = 1;
   }
   // Donne un produit à un client (il vole jusqu'à lui)
   deliver(c, kind, x, y) {
@@ -182,7 +188,7 @@ export class Buvette {
     o.done = true;
     const b = this.custBox(c); this.fly.push({ kind, x0: x, y0: y, x1: b.cx, y1: b.bot - this.S * 0.35, t: 0 });
     sfx.beer(); this.ramo.bounce = 0.4;
-    c.pat = Math.min(c.patMax, c.pat + c.patMax * 0.12);
+    c.pat = Math.min(c.patMax, c.pat + c.patMax * 0.04);
     if (this.tut >= 0) this.tut++;
     if (c.order.every((q) => q.done)) this.pay(c);
     return true;
@@ -224,7 +230,7 @@ export class Buvette {
       this.spawnCd -= dt;
       const waiting = this.custs.filter((c) => c.st === 'wait' || c.st === 'in').length;
       if (this.spawnCd <= 0 || waiting === 0) {
-        if (this.spawn()) { const base = Math.max(1.7, 5.4 - this.day * 0.24) / this.crowd; this.spawnCd = base * rand(0.7, 1.3); }
+        if (this.spawn()) { const base = Math.max(1.3, 4.4 - this.day * 0.25) / this.crowd; this.spawnCd = base * rand(0.7, 1.3); }
         else this.spawnCd = 0.5;
       }
     }
@@ -236,6 +242,7 @@ export class Buvette {
         if (sl.c < 1) { sl.c += dt / dur; continue; }
         const c = this.needy(kind), cell = this.cells.find((q) => q.id === id);
         if (c && cell) { slots[i] = null; this.deliver(c, kind, cell.x + cell.w / 2, cell.y); }
+        else if ((sl.w = (sl.w || 0) + dt) > 6 && cell) { slots[i] = null; this.penalty(cell.x + cell.w / 2, cell.y + 20, 3, kind === 'sausage' ? 'Saucisse froide !' : 'Fondue figée !'); }
       }
     }
     const R = this.ramo; R.x += (R.tx - R.x) * Math.min(1, dt * 9); if (R.sayT > 0) R.sayT -= dt; if (R.spin > 0) R.spin -= dt; if (R.dance > 0) R.dance -= dt;
@@ -253,8 +260,9 @@ export class Buvette {
         c.pat -= dt; const f = c.pat / c.patMax; c.mood = f < 0.3 ? 'angry' : 'wait';
         if (c.pat <= 0) {
           c.st = 'angry'; c.t = 0; c.mood = 'angry'; this.rep--; this.angry++; this.combo = 0;
+          const val = Math.max(5, Math.round(c.order.filter((o) => !o.done).reduce((a, o) => a + ITEMS[o.kind].price, 0) * this.priceMult)); const lost = Math.min(this.earned, val); this.earned -= lost; this.lost += val;
           this.say(c, pick(SAY_KO), true); this.ramo.shake = 0.5; this.ramo.mood = 'sad'; this.ramo.moodT = 1.4; this.g.shake = 0.15; sfx.hit();
-          const b = this.custBox(c); this.g.burst(b.cx, b.bot - this.S, 'text', 1, { text: 'Trop lent ! 💢', color: '#ff6b6b', size: 22 });
+          const b = this.custBox(c); this.g.burst(b.cx, b.bot - this.S, 'text', 1, { text: `Parti fâché ! 💢 -${val} CHF`, color: '#ff5a5a', size: 22 });
         }
       } else if (c.st === 'happy' || c.st === 'angry') { if (c.t > 1.1) { c.st = 'out'; c.t = 0; } }
       else if (c.st === 'out') c.enter = Math.min(1.2, c.enter + dt * 2.4);
@@ -285,7 +293,7 @@ export class Buvette {
   finish() {
     this.reported = true; const g = this.g; g.state = 'over';
     g.ui.buvDay({ mode: this.mode, day: this.day, earned: this.earned, tips: this.tips, served: this.served, angry: this.angry, perfect: this.perfect,
-      bestCombo: this.bestCombo, stars: this.stars, targets: this.targets, closed: this.rep <= 0, duration: Math.round(this.elapsed), event: this.event });
+      lost: this.lost, bestCombo: this.bestCombo, stars: this.stars, targets: this.targets, closed: this.rep <= 0, duration: Math.round(this.elapsed), event: this.event });
   }
   hud() {
     const hearts = '❤️'.repeat(Math.max(0, this.rep)) + '🖤'.repeat(REP_MAX - Math.max(0, this.rep));
