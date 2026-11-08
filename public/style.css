@@ -218,3 +218,19 @@ body.adult .blevel { background: #2d0f47; color: #ffd6f6; }
 .bdlines div { display: flex; justify-content: space-between; background: rgba(255,255,255,.7); border-radius: 10px; padding: 5px 12px; font-weight: 800; font-size: 14px; }
 body.adult .bdlines div { background: #2d0f47; }
 #bdTitle { font-size: clamp(22px, 7vw, 30px); white-space: nowrap; }
+
+/* ---------- Ramo Buvette ---------- */
+.buv-card { max-height: 92vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.btn.shop { background: linear-gradient(#4fe37a, #23a64a); color: #fff; width: 100%; margin: 6px 0; }
+.shop-list { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 12px; text-align: left; }
+.shop-item { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.75); border-radius: 14px; padding: 8px 10px; border: 2px solid rgba(120,70,30,0.2); }
+body.adult .shop-item { background: rgba(255,255,255,0.08); border-color: rgba(255,79,216,0.35); }
+.shop-item .se { font-size: 28px; width: 36px; text-align: center; }
+.shop-item .st { flex: 1; min-width: 0; }
+.shop-item .st b { display: block; font-size: 15px; }
+.shop-item .st small { display: block; font-size: 12px; opacity: 0.75; }
+.shop-item .lv { font-size: 11px; color: #e8a020; letter-spacing: 1px; }
+.shop-item button { border: 0; border-radius: 12px; padding: 9px 10px; font: 900 14px Nunito, sans-serif; background: linear-gradient(#ffd84a, #f0a020); color: #5a2a08; min-width: 74px; }
+.shop-item button:disabled { background: #cfc8bc; color: #7a7266; }
+.shop-item.max button { background: #3cc45a; color: #fff; }
+.lv-buvette { background: linear-gradient(135deg, #8a4a1e, #d98a2a) !important; }

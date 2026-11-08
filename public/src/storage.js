@@ -27,6 +27,9 @@ export const store = {
     P[id] = { best: Math.max(old.best, r.score), stars: old.stars.map((s, i) => s || r.stars[i]), time: isBest ? Math.round(r.time) : old.time, done: true };
     save(); return isBest;
   },
+  // Ramo Buvette : progression par mode → { day, money, total, time, upg:{}, stars:{} }
+  buv(mode) { data.buvP = data.buvP || {}; return (data.buvP[mode] = { day: 1, money: 0, total: 0, time: 0, upg: {}, stars: {}, ...(data.buvP[mode] || {}) }); },
+  saveBuv(mode, s) { data.buvP = data.buvP || {}; data.buvP[mode] = s; save(); },
   get sound() { return data.sound; },
   set sound(v) { data.sound = !!v; save(); },
   best(mode) { return data.best[mode] || 0; },

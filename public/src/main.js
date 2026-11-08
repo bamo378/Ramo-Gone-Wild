@@ -1,6 +1,7 @@
 import { Game } from './game.js';
 import { store, submitOnline, fetchBoard, syncBest } from './storage.js';
 import { WORLDS, LEVEL_IDS } from './bros-levels.js';
+import { UPGRADES, target, eventFor, EVENTS } from './buvette.js';
 import { initAudio, setSound, startMusic, stopMusic, sfx } from './audio.js';
 import { MSG_GAMEOVER, MSG_GAMEOVER_ADULT, SHARE_TEXT, LEVELS, LEVEL_ORDER, levelById } from './config.js';
 
@@ -17,7 +18,7 @@ const boardKey = (c, m) => levelById(c).board(m);
 function loadImg(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
 
 const ui = {
-  hud({ score, lives, distance, bonus, combo, mole, timeLeft, progress, cross, brosText }) {
+  hud({ score, lives, distance, bonus, combo, mole, timeLeft, progress, cross, brosText, text }) {
     $('hScore').textContent = score.toLocaleString('fr-CH');
     $('hLives').classList.toggle('hidden', !!cross);
     const cb = $('hCombo');
@@ -30,7 +31,7 @@ const ui = {
       $('hProgFill').style.width = `${(progress * 100).toFixed(1)}%`;
       $('hProgRamo').style.left = `${(progress * 100).toFixed(1)}%`;
     }
-    $('hDist').textContent = brosText || (cross ? `🐾 ${distance} rangées` : `${distance.toLocaleString('fr-CH')} m`);
+    $('hDist').textContent = text || brosText || (cross ? `🐾 ${distance} rangées` : `${distance.toLocaleString('fr-CH')} m`);
     $('brosPad').classList.toggle('hidden', !brosText);
     const icon = mode === 'adult' ? '💋' : '🍺';
     const html = Array.from({ length: 3 }, (_, i) => `<span class="${i < lives ? '' : 'lost'}">${icon}</span>`).join('');
@@ -111,9 +112,38 @@ const ui = {
     brosNext = next; lastScore = total;
     sfx.record(); show('brosDone');
   },
+  buvDay(r) {
+    $('hud').classList.add('hidden');
+    const S = store.buv(r.mode);
+    S.money += r.earned; S.total += r.earned; S.time += r.duration;
+    const prevStars = S.stars[r.day] || 0; S.stars[r.day] = Math.max(prevStars, r.stars);
+    const advanced = r.stars >= 1 && r.day === S.day; if (advanced) S.day++;
+    store.saveBuv(r.mode, S);
+    const key = boardKey('buvette', r.mode), dur = Math.max(3, Math.min(3600, S.time));
+    store.submit(key, S.total, S.day, dur);
+    $('bvTitle').textContent = r.closed ? 'LE CHALET FERME ! 😬' : r.stars >= 3 ? 'SOIRÉE DE FOLIE ! 🎉' : r.stars >= 1 ? 'BELLE JOURNÉE ! 🍻' : 'PAS ASSEZ… 😅';
+    $('bvStars').innerHTML = [0, 1, 2].map((i) => `<span class="bstar ${i < r.stars ? 'on' : ''}" style="animation-delay:${0.2 + i * 0.25}s">★</span>`).join('');
+    $('bvLines').innerHTML = [
+      ['🙋 Clients servis', r.served], ['💰 Pourboires', `${r.tips} CHF`], ['🍺 Pintes parfaites', r.perfect], ['🔥 Meilleur combo', `x${Math.max(1, r.bestCombo)}`], ['😤 Clients fâchés', r.angry],
+      ['🎯 Objectifs', r.targets.map((t, i) => `${'★'.repeat(i + 1)} ${t}`).join(' · ')],
+    ].map(([a, b]) => `<div><span>${a}</span><b>${b}</b></div>`).join('');
+    $('bvEarned').textContent = `${r.earned} CHF`; $('bvMoney').textContent = `${S.money} CHF`;
+    $('bvMsg').textContent = r.stars >= 1 ? (advanced ? `🔓 Jour ${S.day} débloqué !` : '') : `Il faut ${r.targets[0]} CHF pour passer au jour suivant. Achète des améliorations à la boutique !`;
+    const rk = $('bvRank'); rk.textContent = '🌍 Envoi au classement…';
+    submitOnline(key, S.total, S.day, dur).then((res) => {
+      rk.innerHTML = res ? `🌍 Total gagné ${S.total.toLocaleString('fr-CH')} CHF · <b>${res.rank === 1 ? '🥇 N°1' : res.rank + 'e'}</b> sur ${res.total}` : `🌍 Total gagné ${S.total.toLocaleString('fr-CH')} CHF`;
+      lastRank = res && res.rank;
+    });
+    buvDayNext = r.stars >= 1 ? S.day : r.day;
+    $('btnBvNext').textContent = r.stars >= 1 ? `JOUR ${S.day} ▶` : `↻ RÉESSAYER LE JOUR ${r.day}`;
+    lastScore = S.total;
+    $('bvSummary').classList.remove('hidden'); $('bvShop').classList.add('hidden');
+    updateShopBtn(); show('buvDay');
+  },
   loveRoom(on) { $('btnSkipLove').classList.toggle('hidden', !on); },
 };
 let lastScore = 0;
+let buvDayNext = 1;
 let brosLevel = '1-1', brosNext = null;
 const brosTotal = (md) => Object.values(store.bros(md)).reduce((a, l) => a + (l.best || 0), 0);
 let lastRank = null;
@@ -126,7 +156,7 @@ function applyMode() {
   document.body.classList.toggle('adult', mode === 'adult');
   $('btnClassic').classList.toggle('hidden', mode !== 'adult');
   $('slogan').textContent = mode === 'adult' ? '🔥 RAMO AFTER DARK 🔥' : 'Un castor, des bières et zéro limite !';
-  $('levelName').textContent = mode === 'adult' ? '2 PARCOURS · BY NIGHT' : '2 PARCOURS · BULLE & MOLÉSON';
+  $('levelName').textContent = mode === 'adult' ? '5 JEUX · BY NIGHT' : '5 JEUX · BULLE & LA GRUYÈRE';
   document.querySelector('meta[name=theme-color]').content = mode === 'adult' ? '#3a0b5e' : '#1b6fd1';
   game.reset(mode, 'bulle'); // décor du menu dans la bonne ambiance
 }
@@ -136,7 +166,10 @@ function updateHello() { $('hello').textContent = store.pseudo ? `Salut ${store.
 function showLevels() {
   const cards = LEVEL_ORDER.map(levelById).map((l) => {
     const best = store.best(l.board(mode));
-    const info = l.id === 'bros'
+    const SB = store.buv(mode);
+    const info = l.id === 'buvette'
+      ? { emo: '🍻', title: 'RAMO BUVETTE', desc: 'Tiens la buvette du chalet des 4F : tire les bières, grille les saucisses, sers les clientes… et agrandis ton chalet !', tag: `NOUVEAU · Jour ${SB.day} · 💰 ${SB.money} CHF` }
+      : l.id === 'bros'
       ? { emo: '🍄', title: 'SUPER RAMO BROS', desc: '4 mondes, 12 niveaux et 4 boss : Bulle, Gruyères, le Moléson et le lac. Des bières partout !', tag: `NOUVEAU · ⭐ ${Object.values(store.bros(mode)).reduce((a, x) => a + (x.stars || []).filter(Boolean).length, 0)}/24` }
       : l.id === 'traverse'
       ? { emo: '🦫', title: 'TRAVERSE BULLE', desc: 'Saute de case en case : routes, tracteurs, train, la Trême… Jusqu\'où iras-tu ?', tag: 'NOUVEAU · SANS FIN' }
@@ -149,7 +182,7 @@ function showLevels() {
     </button>`;
   }).join('');
   $('levelList').innerHTML = cards;
-  $('levelList').querySelectorAll('.level-card').forEach((b) => (b.onclick = () => { sfx.click(); hide('levels'); if (b.dataset.id === 'bros') { showBrosMap(); return; } course = b.dataset.id; play(); }));
+  $('levelList').querySelectorAll('.level-card').forEach((b) => (b.onclick = () => { sfx.click(); hide('levels'); if (b.dataset.id === 'bros') { showBrosMap(); return; } course = b.dataset.id; if (course === 'buvette') buvDayNext = store.buv(mode).day; play(); }));
   show('levels');
 }
 // ------------------------------------------------ Super Ramo Bros : carte des mondes
@@ -177,19 +210,40 @@ function showBrosMap() {
   show('brosMap');
 }
 
+// ------------------------------------------------ Ramo Buvette : boutique
+function updateShopBtn() { const S = store.buv(mode); $('btnBvShop').textContent = `🛒 BOUTIQUE · 💰 ${S.money} CHF`; }
+function renderShop() {
+  const S = store.buv(mode);
+  $('bvShopMoney').textContent = `💰 Caisse du chalet : ${S.money} CHF`;
+  $('bvShopList').innerHTML = UPGRADES.map((u) => {
+    const lv = S.upg[u.id] || 0, max = lv >= u.costs.length, cost = u.costs[lv];
+    return `<div class="shop-item ${max ? 'max' : ''}"><span class="se">${u.emo}</span><span class="st"><b>${u.name}</b><small>${u.desc}</small>
+      <span class="lv">${u.costs.map((_, i) => (i < lv ? '●' : '○')).join(' ')}</span></span>
+      <button data-id="${u.id}" ${max || S.money < cost ? 'disabled' : ''}>${max ? '✓ MAX' : `${cost} CHF`}</button></div>`;
+  }).join('');
+  $('bvShopList').querySelectorAll('button[data-id]').forEach((b) => (b.onclick = () => {
+    const S2 = store.buv(mode), u = UPGRADES.find((x) => x.id === b.dataset.id), lv = S2.upg[u.id] || 0, cost = u.costs[lv];
+    if (cost === undefined || S2.money < cost) return;
+    S2.money -= cost; S2.upg[u.id] = lv + 1; store.saveBuv(mode, S2); sfx.golden(); renderShop(); updateShopBtn();
+    $('bvMoney').textContent = `${S2.money} CHF`;
+  }));
+}
+
 function updateSoundBtn() { $('btnSound').textContent = store.sound ? '🔊 SON' : '🔇 SON'; }
 
 function play() {
   initAudio();
   if (!store.pseudo) { pendingPlay = true; show('pseudo'); setTimeout(() => $('pseudoInput').focus(), 100); return; }
   if (!howtoSeen) { pendingPlay = true; show('howto'); return; }
-  hide('menu'); hide('over'); hide('pause'); hide('levels'); hide('brosDone'); hide('brosMap');
+  hide('menu'); hide('over'); hide('pause'); hide('levels'); hide('brosDone'); hide('brosMap'); hide('buvDay');
   $('hud').classList.remove('hidden');
-  if (course === 'bros') game.startBros(mode, brosLevel); else game.start(mode, course);
+  if (course === 'bros') game.startBros(mode, brosLevel);
+  else if (course === 'buvette') { const S = store.buv(mode); S.playDay = buvDayNext && buvDayNext <= S.day ? buvDayNext : S.day; game.startBuvette(mode, { ...S, day: S.playDay }); }
+  else game.start(mode, course);
   startMusic(mode);
 }
 function toMenu() {
-  hide('over'); hide('pause'); hide('brosDone'); hide('brosMap'); $('hud').classList.add('hidden'); $('btnSkipLove').classList.add('hidden'); $('brosPad').classList.add('hidden');
+  hide('over'); hide('pause'); hide('brosDone'); hide('brosMap'); hide('buvDay'); $('hud').classList.add('hidden'); $('btnSkipLove').classList.add('hidden'); $('brosPad').classList.add('hidden');
   game.state = 'idle'; game.reset(mode, 'bulle');
   stopMusic(); updateHello(); show('menu');
 }
@@ -243,7 +297,7 @@ function bindInput() {
     if (map[e.key] && game.state === 'play') { e.preventDefault(); game.input(map[e.key]); }
     else if (e.key === 'Enter' && $('over').classList.contains('show')) play();
   });
-  document.addEventListener('touchmove', (e) => { if (e.target.tagName !== 'INPUT' && !e.target.closest('.board, .howto-card, .bros-card')) e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchmove', (e) => { if (e.target.tagName !== 'INPUT' && !e.target.closest('.board, .howto-card, .bros-card, .buv-card')) e.preventDefault(); }, { passive: false });
   document.addEventListener('gesturestart', (e) => e.preventDefault());
   document.addEventListener('dblclick', (e) => e.preventDefault());
 }
@@ -293,7 +347,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '
 let boardCourse = 'bulle';
 function renderRecords() {
   if (mode !== 'adult') boardMode = 'classic';
-  const ctabs = `<div class="tabs">${LEVEL_ORDER.map((id) => `<button class="tab ctab ${boardCourse === id ? 'on' : ''}" data-c="${id}">${{ bros: '🍄 Bros', traverse: '🦫 Traverse', moleson: '⛷️ Moléson', bulle: '🍺 Bulle' }[id]}</button>`).join('')}</div>`;
+  const ctabs = `<div class="tabs">${LEVEL_ORDER.map((id) => `<button class="tab ctab ${boardCourse === id ? 'on' : ''}" data-c="${id}">${{ buvette: '🍻 Buvette', bros: '🍄 Bros', traverse: '🦫 Traverse', moleson: '⛷️ Moléson', bulle: '🍺 Bulle' }[id]}</button>`).join('')}</div>`;
   const tabs = mode === 'adult'
     ? `<div class="tabs"><button class="tab ${boardMode === 'classic' ? 'on' : ''}" data-m="classic">Classique</button><button class="tab ${boardMode === 'adult' ? 'on' : ''}" data-m="adult">🔥 18+</button></div>` : '';
   const key = boardKey(boardCourse, boardMode);
@@ -328,6 +382,12 @@ async function boot() {
   $('btnBdAgain').onclick = () => { sfx.click(); course = 'bros'; play(); };
   $('btnBdMap').onclick = () => { hide('brosDone'); toMenu(); hide('menu'); showBrosMap(); };
   $('btnBdShare').onclick = share;
+  $('btnBvNext').onclick = () => { sfx.click(); course = 'buvette'; play(); };
+  $('btnBvShop').onclick = () => { sfx.click(); renderShop(); $('bvSummary').classList.add('hidden'); $('bvShop').classList.remove('hidden'); $('bvTitle').textContent = '🛒 BOUTIQUE'; };
+  $('btnBvShopBack').onclick = () => { sfx.click(); $('bvShop').classList.add('hidden'); $('bvSummary').classList.remove('hidden'); $('bvTitle').textContent = 'ON CONTINUE ?'; };
+  $('btnBvMenu').onclick = () => { hide('buvDay'); toMenu(); };
+  $('btnBvShare').onclick = share;
+  $('game').addEventListener('pointerdown', (e) => { if (game.buv && game.state === 'play') { e.preventDefault(); game.buv.tap(e.clientX, e.clientY); } });
   $('btnReplay').onclick = () => { sfx.click(); play(); };
   $('btnMenu').onclick = toMenu; $('btnQuit').onclick = toMenu;
   $('btnPause').onclick = togglePause; $('btnResume').onclick = togglePause;

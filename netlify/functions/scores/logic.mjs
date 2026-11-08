@@ -2,7 +2,7 @@
 // Un enregistrement par joueur et par mode : clé "<mode>/<idJoueur>" → meilleur score.
 // Pas de compteur partagé : chaque joueur n'écrit que sa propre clé.
 
-export const MODES = ['classic', 'adult', 'moleson-classic', 'moleson-adult', 'traverse-classic', 'traverse-adult', 'bros-classic', 'bros-adult'];
+export const MODES = ['classic', 'adult', 'moleson-classic', 'moleson-adult', 'traverse-classic', 'traverse-adult', 'bros-classic', 'bros-adult', 'buvette-classic', 'buvette-adult'];
 
 // Corrections manuelles : record perdu à cause d'un ancien bug d'affichage.
 // Appliquées une seule fois si le score enregistré est plus bas.

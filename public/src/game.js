@@ -4,6 +4,7 @@
 import { GAME, PICKUPS, OBSTACLES, LEVELS, levelById, MSG_CLASSIC, MSG_ADULT, MSG_HIT, MSG_BLONDE, MSG_LOVE_OUT, MSG_MOLESON, MSG_GATE, MSG_COMBO, MSG_HIT_M } from './config.js';
 import * as M from './moleson.js';
 import { Crossy } from './crossy.js';
+import { Buvette } from './buvette.js';
 import { Bros } from './bros.js';
 import * as D from './draw.js';
 import * as S from './scene.js';
@@ -45,6 +46,7 @@ export class Game {
     this.ramoH = Math.min(H * 0.25, W * 0.4 * (620 / 528));
     if (this.cross) this.cross.resize();
     if (this.bros) this.bros.resize();
+    if (this.buv) this.buv.resize();
   }
 
   reset(mode, course = this.course || 'bulle') {
@@ -52,7 +54,7 @@ export class Game {
     this.adult = mode === 'adult';
     this.level = levelById(course); this.course = this.level.id;
     this.mole = this.course === 'moleson';
-    this.cross = null; this.bros = null;
+    this.cross = null; this.bros = null; this.buv = null;
     this.speed = this.level.speed.start;
     // chrono, portes, stations, arrivée (Moléson) + combos (tous parcours)
     this.timeLeft = this.level.startTime || 0; this.gateCd = 3; this.stationIdx = 0; this.decorFar = NaN;
@@ -76,6 +78,11 @@ export class Game {
     this.decor.push({ kind: 'arch', z: 3.2, label: this.mole ? 'DÉPART · MOLÉSON 2002 m' : 'DÉPART · GRAND-RUE', side: 0 });
   }
 
+  // Ramo Buvette : une journée au chalet des 4F
+  startBuvette(mode, save) {
+    this.reset(mode, 'bulle'); this.course = 'buvette'; this.reported = false;
+    this.buv = new Buvette(this, mode, save); this.state = 'play'; this.buv.hud();
+  }
   // Super Ramo Bros : un niveau précis (ex. « 1-2 »)
   startBros(mode, id) {
     this.reset(mode, 'bulle'); this.course = 'bros'; this.reported = false;
@@ -130,7 +137,7 @@ export class Game {
   input(dir) {
     if (this.state !== 'play') return;
     if (this.cross) { this.cross.input(dir); return; }
-    if (this.bros) return; // commandes maintenues : voir setKey
+    if (this.bros || this.buv) return; // commandes maintenues / tapes localisées : voir setKey
     if (dir === 'tap') return;
     const p = this.p;
     if (dir === 'left' && p.lane > -1) { p.lane--; sfx.lane(); }
@@ -305,6 +312,11 @@ export class Game {
   }
 
   update(dt) {
+    if (this.buv) {
+      this.buv.update(dt); this.updateParts(dt);
+      if (this.shake > 0) this.shake -= dt;
+      return;
+    }
     if (this.bros) {
       this.bros.update(dt); this.updateParts(dt);
       if (this.closeup) { this.closeup.t += dt; if (this.closeup.t > 1.6) this.closeup = null; }
@@ -596,6 +608,10 @@ export class Game {
   render() {
     const c = this.c, W = this.W, H = this.H, P = this.P, adult = this.adult, t = this.t;
     c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    if (this.buv) {
+      c.save(); if (this.shake > 0) c.translate(rand(-4, 4) * this.shake * 3, rand(-4, 4) * this.shake * 3);
+      this.buv.render(c); D.drawParticles(c, this.parts); c.restore(); return;
+    }
     if (this.bros) {
       this.bros.render(c); D.drawParticles(c, this.parts);
       if (this.closeup) this.drawCloseup(c);
